@@ -1,0 +1,20 @@
+# Git for Windows sets core.autocrlf=true in its SYSTEM config, so a checkout on
+# this machine would otherwise rewrite every file to CRLF while the blobs stay LF.
+# This file wins over that, and it travels with the repository, so a clone and a
+# CI runner both get exactly what is stored.
+* text=auto eol=lf
+
+# Binaries: never touched, never diffed as text.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.webp  binary
+*.avif  binary
+*.woff  binary
+*.woff2 binary
+*.pdf   binary
+
+# Lockfile: generated, and a conflict in it is resolved by regenerating.
+package-lock.json -diff linguist-generated
