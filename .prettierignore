@@ -1,0 +1,16 @@
+# This file is TRACKED. Never name local-only files here -- listing a filename
+# in a tracked ignore file publishes that filename in a public repository just
+# as surely as .gitignore would. Local-only paths belong in .git/info/exclude,
+# which the format scripts pass to Prettier explicitly.
+
+.next/
+out/
+build/
+coverage/
+next-env.d.ts
+
+# Prisma generator output, from Phase 03 onward.
+src/generated/
+
+# Generated, and reformatting it only creates diff noise.
+package-lock.json
