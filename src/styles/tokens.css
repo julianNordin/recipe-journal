@@ -1,0 +1,142 @@
+/*
+ * Design tokens.
+ *
+ * Every colour, space, radius and type step in the application resolves to one
+ * of these. Components never hard-code a hex value -- that is what makes the
+ * dark theme a redefinition of ~20 custom properties rather than a second
+ * stylesheet.
+ *
+ * Light is the base. Dark is applied two ways: automatically from the system
+ * preference, and explicitly via [data-theme] when the user has chosen. The
+ * explicit selector has to be able to win in both directions, which is why the
+ * media query is guarded against an explicit light choice.
+ */
+
+:root {
+  /* --- Palette: warm neutrals, because it is a recipe site ------------- */
+  --color-bg: #fdfcfa;
+  --color-surface: #ffffff;
+  --color-surface-raised: #ffffff;
+  --color-border: #e7e2da;
+  --color-border-strong: #d3cbc0;
+
+  --color-text: #1c1917;
+  --color-text-muted: #6b625a;
+  --color-text-subtle: #918a80;
+
+  --color-accent: #b4491f;
+  --color-accent-hover: #963b17;
+  --color-accent-contrast: #ffffff;
+  --color-accent-subtle: #fdf0ea;
+
+  --color-danger: #a52121;
+  --color-danger-subtle: #fdeded;
+  --color-success: #2f6b34;
+  --color-success-subtle: #edf7ee;
+
+  --color-focus: #2563eb;
+
+  /* --- Space: a 4px scale --------------------------------------------- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  /* --- Type ------------------------------------------------------------ */
+  --font-sans:
+    var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-serif: var(--font-fraunces), ui-serif, Georgia, "Times New Roman", serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.25rem;
+
+  --leading-tight: 1.2;
+  --leading-normal: 1.55;
+  --leading-relaxed: 1.7;
+
+  /* --- Shape ----------------------------------------------------------- */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 14px;
+  --radius-full: 999px;
+
+  --shadow-sm: 0 1px 2px rgb(28 25 23 / 6%);
+  --shadow-md: 0 2px 8px rgb(28 25 23 / 8%);
+
+  /* --- Layout ---------------------------------------------------------- */
+  --width-content: 68rem;
+  --width-prose: 40rem;
+
+  --transition-fast: 120ms ease;
+}
+
+/*
+ * System preference, unless the user has explicitly asked for light.
+ * Only the tokens change; no rule below this point knows about theming.
+ */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-bg: #17150f;
+    --color-surface: #211e18;
+    --color-surface-raised: #2a2620;
+    --color-border: #38332b;
+    --color-border-strong: #4c463c;
+
+    --color-text: #f5f1ea;
+    --color-text-muted: #b3aa9d;
+    --color-text-subtle: #8a8175;
+
+    --color-accent: #f08a5d;
+    --color-accent-hover: #f6a179;
+    --color-accent-contrast: #1c1917;
+    --color-accent-subtle: #2e2119;
+
+    --color-danger: #f08a8a;
+    --color-danger-subtle: #2e1a1a;
+    --color-success: #86ce8e;
+    --color-success-subtle: #1a2a1c;
+
+    --color-focus: #7ea6ff;
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+    --shadow-md: 0 2px 10px rgb(0 0 0 / 45%);
+  }
+}
+
+/* Explicit choice wins over the system preference, in both directions. */
+:root[data-theme="dark"] {
+  --color-bg: #17150f;
+  --color-surface: #211e18;
+  --color-surface-raised: #2a2620;
+  --color-border: #38332b;
+  --color-border-strong: #4c463c;
+
+  --color-text: #f5f1ea;
+  --color-text-muted: #b3aa9d;
+  --color-text-subtle: #8a8175;
+
+  --color-accent: #f08a5d;
+  --color-accent-hover: #f6a179;
+  --color-accent-contrast: #1c1917;
+  --color-accent-subtle: #2e2119;
+
+  --color-danger: #f08a8a;
+  --color-danger-subtle: #2e1a1a;
+  --color-success: #86ce8e;
+  --color-success-subtle: #1a2a1c;
+
+  --color-focus: #7ea6ff;
+
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 40%);
+  --shadow-md: 0 2px 10px rgb(0 0 0 / 45%);
+}
