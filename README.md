@@ -21,7 +21,7 @@ Server Actions write through it, and there is no client-side data-fetching layer
 Under construction. The roadmap below is ticked as each phase lands.
 
 - [x] 01 — Scaffold and tooling
-- [ ] 02 — App shell, design tokens and primitives
+- [x] 02 — App shell, design tokens and primitives
 - [ ] 03 — Postgres, Prisma and the core models
 - [ ] 04 — Full schema, relations and seed data
 - [ ] 05 — Test harness: Vitest projects and Testcontainers
