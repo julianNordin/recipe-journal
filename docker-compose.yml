@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:18-alpine
+    container_name: recipe-journal-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: recipe
+      POSTGRES_PASSWORD: recipe
+      POSTGRES_DB: recipe_journal
+      # Deterministic collation, so ORDER BY on a title sorts the same on a
+      # developer machine and in CI.
+      POSTGRES_INITDB_ARGS: "--locale-provider=icu --icu-locale=en-US"
+    ports:
+      - "5432:5432"
+    volumes:
+      # postgres:18 moved PGDATA to /var/lib/postgresql/18/docker and declares
+      # its VOLUME at /var/lib/postgresql. Mounting the pre-18 path that every
+      # older example still shows puts the real cluster in the container's
+      # writable layer while this named volume sits empty looking correct --
+      # so every `compose down` silently starts from scratch.
+      - db-data:/var/lib/postgresql
+    healthcheck:
+      # A TCP port opens well before the server accepts queries. pg_isready is
+      # the difference between "container started" and "database usable", and
+      # depends_on: service_healthy is only meaningful with it.
+      test: ["CMD-SHELL", "pg_isready -U recipe -d recipe_journal"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  db-data:
