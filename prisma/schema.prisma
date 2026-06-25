@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+
+  // Next 16 bundles ESM on the server, and both Vitest and tsx resolve ESM
+  // natively, so there is no reason to emit CommonJS here.
+  moduleFormat = "esm"
+  runtime      = "nodejs"
+}
+
+datasource db {
+  provider = "postgresql"
+  // No url here. Prisma 7 rejects one outright (P1012): the connection string
+  // lives in prisma.config.ts for the CLI, and reaches the client through the
+  // driver adapter.
+}
+
+enum RecipeStatus {
+  DRAFT
+  PUBLISHED
+}
+
+enum Difficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+enum UserRole {
+  USER
+  AUTHOR
+}
+
+model User {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  // Uniqueness is enforced case-insensitively by a functional index added in
+  // phase 06, which Prisma's schema language cannot express. This plain
+  // @unique is the case-sensitive half of it.
+  email         String    @unique @db.VarChar(320)
+  emailVerified DateTime? @map("email_verified") @db.Timestamptz(3)
+  name          String?   @db.VarChar(120)
+  image         String?   @db.VarChar(500)
+
+  // Null for an account that only ever signs in through OAuth.
+  passwordHash String? @map("password_hash") @db.VarChar(255)
+
+  role UserRole @default(USER)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  recipes Recipe[]
+
+  @@map("users")
+}
+
+model Recipe {
+  id String @id @default(uuid(7)) @db.Uuid
+
+  title        String     @db.VarChar(160)
+  summary      String?    @db.VarChar(400)
+  body         String
+  heroImageUrl String?    @map("hero_image_url") @db.VarChar(500)
+  servings     Int
+  prepMinutes  Int        @map("prep_minutes")
+  cookMinutes  Int        @map("cook_minutes")
+  difficulty   Difficulty @default(MEDIUM)
+
+  status RecipeStatus @default(DRAFT)
+
+  // A CHECK added in phase 06 ties this to status, so no code path can
+  // produce a published recipe with no publish date or the reverse.
+  publishedAt DateTime? @map("published_at") @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  // Restrict, not Cascade: deleting an author who still has recipes should
+  // fail loudly rather than quietly removing their work.
+  authorId String @map("author_id") @db.Uuid
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([status, publishedAt(sort: Desc)])
+  @@index([authorId, status])
+  @@map("recipes")
+}
