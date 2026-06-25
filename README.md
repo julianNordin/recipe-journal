@@ -22,7 +22,7 @@ Under construction. The roadmap below is ticked as each phase lands.
 
 - [x] 01 — Scaffold and tooling
 - [x] 02 — App shell, design tokens and primitives
-- [ ] 03 — Postgres, Prisma and the core models
+- [x] 03 — Postgres, Prisma and the core models
 - [ ] 04 — Full schema, relations and seed data
 - [ ] 05 — Test harness: Vitest projects and Testcontainers
 - [ ] 06 — Hand-written constraints, each with its proving test
@@ -49,7 +49,12 @@ npm install
 npm run dev
 ```
 
-Requires Node 24. A database is not needed until phase 03.
+Requires Node 24 and Docker.
+
+```bash
+npm run db:up        # postgres 18 in a container
+npm run db:migrate   # apply migrations
+```
 
 ## Scripts
 
