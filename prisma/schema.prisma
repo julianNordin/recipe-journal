@@ -31,6 +31,12 @@ enum UserRole {
   AUTHOR
 }
 
+// ---------------------------------------------------------------------------
+// Identity. The three models below User are NextAuth v4's required shape; the
+// column names are the adapter's, not this project's, which is why they break
+// the snake_case convention used everywhere else.
+// ---------------------------------------------------------------------------
+
 model User {
   id String @id @default(uuid(7)) @db.Uuid
 
@@ -50,10 +56,61 @@ model User {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
 
-  recipes Recipe[]
+  accounts Account[]
+  sessions Session[]
+  recipes  Recipe[]
+  comments Comment[]
 
   @@map("users")
 }
+
+model Account {
+  id                String  @id @default(uuid(7)) @db.Uuid
+  userId            String  @map("user_id") @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+/// Created by the NextAuth adapter and never read: a Credentials provider
+/// forces session.strategy = "jwt", and JWT sessions live in a cookie. The
+/// table exists because the adapter's contract requires it. Documented here so
+/// nobody mistakes it for load-bearing.
+model Session {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id") @db.Uuid
+  expires      DateTime @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime @db.Timestamptz(3)
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+// ---------------------------------------------------------------------------
+// Recipes
+// ---------------------------------------------------------------------------
 
 model Recipe {
   id String @id @default(uuid(7)) @db.Uuid
@@ -81,7 +138,101 @@ model Recipe {
   authorId String @map("author_id") @db.Uuid
   author   User   @relation(fields: [authorId], references: [id], onDelete: Restrict)
 
+  slugs       RecipeSlug[]
+  ingredients RecipeIngredient[]
+  steps       RecipeStep[]
+  tags        RecipeTag[]
+  comments    Comment[]
+
   @@index([status, publishedAt(sort: Desc)])
   @@index([authorId, status])
   @@map("recipes")
+}
+
+/// Every slug a recipe has ever had. There is deliberately no `slug` column on
+/// Recipe: this table is the single source of truth, the primary key makes
+/// every slug globally unique for free, and a partial unique index added in
+/// phase 06 enforces exactly one current slug per recipe.
+///
+/// A rename flips one row and inserts another inside one transaction, so an old
+/// URL keeps resolving and redirects to the current one.
+model RecipeSlug {
+  slug      String   @id @db.VarChar(140)
+  recipeId  String   @map("recipe_id") @db.Uuid
+  isCurrent Boolean  @default(true) @map("is_current")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId])
+  @@map("recipe_slugs")
+}
+
+/// Positions are dense, 0-based, and unique per recipe. The uniqueness is
+/// declared here but *replaced* in phase 06 by a DEFERRABLE constraint: a
+/// reorder swaps two positions inside one transaction, and a non-deferrable
+/// UNIQUE rejects the intermediate state.
+model RecipeIngredient {
+  id       String  @id @default(uuid(7)) @db.Uuid
+  recipeId String  @map("recipe_id") @db.Uuid
+  position Int
+  quantity String? @db.VarChar(40)
+  unit     String? @db.VarChar(40)
+  item     String  @db.VarChar(160)
+  note     String? @db.VarChar(200)
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, position], map: "ux_recipe_ingredient_position")
+  @@map("recipe_ingredients")
+}
+
+model RecipeStep {
+  id       String @id @default(uuid(7)) @db.Uuid
+  recipeId String @map("recipe_id") @db.Uuid
+  position Int
+  text     String @db.VarChar(1000)
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@unique([recipeId, position], map: "ux_recipe_step_position")
+  @@map("recipe_steps")
+}
+
+model Tag {
+  id   String @id @default(uuid(7)) @db.Uuid
+  slug String @unique @db.VarChar(60)
+  name String @db.VarChar(60)
+
+  recipes RecipeTag[]
+
+  @@map("tags")
+}
+
+model RecipeTag {
+  recipeId String @map("recipe_id") @db.Uuid
+  tagId    String @map("tag_id") @db.Uuid
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  tag    Tag    @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([recipeId, tagId])
+  @@index([tagId])
+  @@map("recipe_tags")
+}
+
+model Comment {
+  id       String @id @default(uuid(7)) @db.Uuid
+  recipeId String @map("recipe_id") @db.Uuid
+  authorId String @map("author_id") @db.Uuid
+
+  body String @db.VarChar(2000)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  recipe Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId, createdAt(sort: Desc)])
+  @@map("comments")
 }
