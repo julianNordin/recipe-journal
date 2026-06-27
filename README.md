@@ -56,6 +56,53 @@ npm run db:up        # postgres 18 in a container
 npm run db:migrate   # apply migrations
 ```
 
+## The data model
+
+Two decisions are worth explaining, because both look like over-engineering until
+the alternative is tried.
+
+**A recipe has no `slug` column.** `recipe_slugs` holds every slug a recipe has ever
+had, keyed by the slug itself, with `is_current` marking the live one. Global
+uniqueness therefore comes free from the primary key, and renaming a published
+recipe does not break its old URL: the row stays, `is_current` flips, and the old
+address permanently redirects to the new one. A partial unique index enforces
+exactly one current slug per recipe.
+
+The obvious alternative — a `slug` column plus a history table — has two sources of
+truth for the same fact and no way to stop them disagreeing.
+
+**Ingredient and step positions are dense, 0-based, and unique per recipe, with a
+`DEFERRABLE` constraint.** Reordering swaps two positions inside one transaction,
+and a plain `UNIQUE` rejects the intermediate state where both rows briefly hold
+the same number. Deferring the check to `COMMIT` is the fix; the alternative of
+renumbering through negative offsets is twice the queries and easy to get wrong.
+
+Four things the schema cannot express in Prisma's language and so are hand-written
+into migration SQL: that partial unique index, a `lower(email)` functional index,
+the two deferrable position constraints, and a `CHECK` tying `status = 'PUBLISHED'`
+to `published_at IS NOT NULL` so no code path can produce a half-published recipe.
+
+Consequently **`prisma db push` is not used in this repository** — it reconciles the
+database to the schema file and would silently drop all of them. Only `migrate dev`
+and `migrate deploy`, which replay the migration history verbatim.
+
+**The `sessions` table is created and never read.** A credentials provider forces
+JWT sessions, which live in a cookie; the NextAuth adapter's contract still requires
+the table to exist. It is documented in the schema rather than quietly present.
+
+### Working with the database
+
+```bash
+npm run db:up        # postgres 18 in a container
+npm run db:migrate   # apply migrations
+npm run db:seed      # two authors, three recipes, four tags
+npm run db:studio    # browse it
+```
+
+The seed is idempotent — every write is an upsert keyed on something stable, so
+running it repeatedly is a no-op. Every date in it is a fixed literal, so the
+fixture is identical on every run.
+
 ## Scripts
 
 | Script                 | What it does                               |
