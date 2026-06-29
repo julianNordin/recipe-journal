@@ -114,6 +114,37 @@ fixture is identical on every run.
 | `npm run format`       | Prettier, writing in place                 |
 | `npm run format:check` | Prettier, failing on any drift             |
 
+## Testing
+
+Two tiers, kept apart on purpose.
+
+| Tier   | Command             | Needs Docker | What it covers                                        |
+| ------ | ------------------- | ------------ | ----------------------------------------------------- |
+| `unit` | `npm run test:unit` | no           | Pure logic — validation, domain rules                 |
+| `db`   | `npm run test:db`   | yes          | Real Postgres: queries, constraints, delete behaviour |
+
+The fast tier has no database dependency at all, verified by running it with
+`DATABASE_URL` unset. That matters more than it sounds: a fast tier that cannot
+run without Docker is not a fast tier, and Docker is not always running.
+
+The database tier starts one Postgres 18 container for the whole run — the same
+major the application uses, because the constraints this schema leans on are
+version-sensitive — applies migrations with `migrate deploy`, and truncates
+between tests.
+
+**Truncation, not `migrate reset`.** Measured here at **23.7 ms** median over 25
+runs across 11 tables. A reset drops and replays the whole migration history and
+is two orders of magnitude slower. The measurement lives in the suite rather than
+in a comment, so it stays current.
+
+The table list is read from `pg_tables` rather than written by hand. A hard-coded
+list quietly stops truncating whatever gets added next, and the symptom — a test
+that passes alone and fails in a suite — is a long way from the cause.
+
+**Query functions take their Prisma client as an argument.** The application hands
+them the `server-only` singleton; tests hand them one pointed at the container.
+Without that, the data layer could only be tested through a browser.
+
 ## Notes on the toolchain
 
 Three versions are pinned exactly rather than left on a caret range, each for a reason worth
