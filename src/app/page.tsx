@@ -1,5 +1,6 @@
 import { LinkButton } from "@/components/ui/Button";
 import { Badge, Card, Container, EmptyState } from "@/components/ui/Surfaces";
+import { db } from "@/server/db";
 import { countPublishedRecipes } from "@/server/recipes/queries";
 
 import styles from "./page.module.css";
@@ -9,11 +10,12 @@ import styles from "./page.module.css";
  * on the server -- there is no fetch, no loading state and no client component
  * anywhere in this tree.
  *
- * Note it calls a query function rather than importing `db`. Pages compose;
- * src/server owns the data access.
+ * Note it hands `db` to a query function rather than writing a query. Pages
+ * compose; src/server owns data access. The client is passed rather than
+ * imported there so the same functions can run against a test container.
  */
 export default async function Home() {
-  const published = await countPublishedRecipes();
+  const published = await countPublishedRecipes(db);
 
   return (
     <Container>
