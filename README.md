@@ -25,7 +25,7 @@ Under construction. The roadmap below is ticked as each phase lands.
 - [x] 03 — Postgres, Prisma and the core models
 - [x] 04 — Full schema, relations and seed data
 - [x] 05 — Test harness: Vitest projects and Testcontainers
-- [ ] 06 — Hand-written constraints, each with its proving test
+- [x] 06 — Hand-written constraints, each with its proving test
 - [ ] 07 — Domain layer: the pure rules
 - [ ] 08 — Recipe detail, the SSR proof and Playwright
 - [ ] 09 — Listing, tags and paging
