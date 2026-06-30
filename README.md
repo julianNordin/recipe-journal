@@ -77,10 +77,22 @@ and a plain `UNIQUE` rejects the intermediate state where both rows briefly hold
 the same number. Deferring the check to `COMMIT` is the fix; the alternative of
 renumbering through negative offsets is twice the queries and easy to get wrong.
 
-Four things the schema cannot express in Prisma's language and so are hand-written
-into migration SQL: that partial unique index, a `lower(email)` functional index,
-the two deferrable position constraints, and a `CHECK` tying `status = 'PUBLISHED'`
-to `published_at IS NOT NULL` so no code path can produce a half-published recipe.
+Four kinds of constraint the schema language cannot express are hand-written into
+migration SQL, each with a test that was watched to fail first:
+
+| Constraint                        | Why Prisma cannot express it                                  |
+| --------------------------------- | ------------------------------------------------------------- |
+| `ux_recipe_slug_current`          | Partial index — `UNIQUE (recipe_id) WHERE is_current`         |
+| `ux_users_email_lower`            | Functional index — `UNIQUE (lower(email))`                    |
+| `ux_recipe_*_position`            | `DEFERRABLE INITIALLY DEFERRED`, so a swap can commit         |
+| `ck_recipes_published_consistent` | `CHECK ((status = 'PUBLISHED') = (published_at IS NOT NULL))` |
+
+The deferrable pair is the interesting one. Only constraints can be deferred, not
+indexes, so Prisma's generated unique indexes are dropped and re-added as
+constraints checked at `COMMIT` rather than per statement.
+
+That the tests genuinely bite was confirmed by mutation: removing `DEFERRABLE`
+from the migration fails exactly the three reorder tests and nothing else.
 
 Consequently **`prisma db push` is not used in this repository** — it reconciles the
 database to the schema file and would silently drop all of them. Only `migrate dev`
