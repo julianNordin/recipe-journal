@@ -161,13 +161,20 @@ describe("check constraints", () => {
     await expect(makeRecipe(db(), { status: "PUBLISHED", publishedAt: null })).rejects.toThrow();
   });
 
-  it("rejects a draft that carries a publish date", async () => {
-    await expect(
-      makeRecipe(db(), { status: "DRAFT", publishedAt: new Date("2026-07-01T00:00:00.000Z") }),
-    ).rejects.toThrow();
+  it("allows a draft to remember when it was last published", async () => {
+    // Deliberately permitted. Publishing sets publishedAt once and never moves
+    // it, so the date has to survive a trip through DRAFT -- a recipe
+    // unpublished to fix a typo must not jump to the top of the archive when
+    // it comes back. A draft carrying a date is a record, not an
+    // inconsistency; only the reverse direction is load-bearing.
+    const recipe = await makeRecipe(db(), {
+      status: "DRAFT",
+      publishedAt: new Date("2026-07-01T00:00:00.000Z"),
+    });
+    expect(recipe.publishedAt).not.toBeNull();
   });
 
-  it("accepts the two consistent combinations", async () => {
+  it("accepts a draft with no date and a published recipe with one", async () => {
     await makeRecipe(db(), { status: "DRAFT", publishedAt: null });
     await makeRecipe(db(), {
       status: "PUBLISHED",
