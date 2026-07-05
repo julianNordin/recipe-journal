@@ -20,6 +20,7 @@
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset",
     "test:db": "vitest run --config vitest.config.db.mts",
+    "test:e2e": "playwright test",
     "test": "npm run test:unit && npm run test:db"
   },
   "dependencies": {
@@ -38,6 +39,7 @@
     "zod": "^4.5.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@testcontainers/postgresql": "^12.1.0",
     "@types/node": "^24",
     "@types/react": "^19",
