@@ -27,7 +27,7 @@ Under construction. The roadmap below is ticked as each phase lands.
 - [x] 05 — Test harness: Vitest projects and Testcontainers
 - [x] 06 — Hand-written constraints, each with its proving test
 - [x] 07 — Domain layer: the pure rules
-- [ ] 08 — Recipe detail, the SSR proof and Playwright
+- [x] 08 — Recipe detail, the SSR proof and Playwright
 - [ ] 09 — Listing, tags and paging
 - [ ] 10 — Authentication: NextAuth and credentials
 - [ ] 11 — Authentication: GitHub OAuth and route protection
