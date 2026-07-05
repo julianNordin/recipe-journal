@@ -1,0 +1,197 @@
+.recipe {
+  padding-block: var(--space-7) var(--space-8);
+}
+
+/* --- Header ------------------------------------------------------------- */
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  max-width: var(--width-prose);
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-size: var(--text-3xl);
+  line-height: var(--leading-tight);
+}
+
+.summary {
+  font-size: var(--text-lg);
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-muted);
+}
+
+.byline {
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  list-style: none;
+  margin-top: var(--space-1);
+}
+
+/* --- Facts -------------------------------------------------------------- */
+
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  margin-block: var(--space-6);
+  padding-block: var(--space-4);
+  border-block: 1px solid var(--color-border);
+}
+
+.fact dt {
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-subtle);
+}
+
+.fact dd {
+  font-size: var(--text-lg);
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Body --------------------------------------------------------------- */
+
+/*
+ * The one place author-written HTML lands. Everything inside comes from
+ * renderMarkdown, so the element list it can produce is exactly what the
+ * sanitiser allows -- which is why styling by element rather than by class is
+ * safe here and nowhere else.
+ */
+.body {
+  max-width: var(--width-prose);
+  line-height: var(--leading-relaxed);
+}
+
+.body > * + * {
+  margin-top: var(--space-4);
+}
+
+.body h2,
+.body h3 {
+  font-family: var(--font-serif);
+  margin-top: var(--space-6);
+}
+
+.body ul,
+.body ol {
+  padding-left: var(--space-5);
+}
+
+.body li + li {
+  margin-top: var(--space-2);
+}
+
+.body a {
+  color: var(--color-accent);
+}
+
+.body code {
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  background: var(--color-accent-subtle);
+  padding: 0.1em 0.35em;
+  border-radius: var(--radius-sm);
+}
+
+.body pre {
+  overflow-x: auto;
+  padding: var(--space-4);
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.body pre code {
+  background: none;
+  padding: 0;
+}
+
+.body blockquote {
+  padding-left: var(--space-4);
+  border-left: 3px solid var(--color-border-strong);
+  color: var(--color-text-muted);
+}
+
+.body img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+}
+
+/* --- Ingredients and method --------------------------------------------- */
+
+.columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-7);
+  margin-top: var(--space-7);
+}
+
+@media (width >= 56rem) {
+  .columns {
+    grid-template-columns: 18rem minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .ingredients {
+    position: sticky;
+    top: var(--space-5);
+  }
+}
+
+.ingredients h2,
+.method h2 {
+  font-family: var(--font-serif);
+  font-size: var(--text-xl);
+  margin-bottom: var(--space-4);
+}
+
+.ingredientList {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ingredientList li {
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--color-border);
+  line-height: var(--leading-normal);
+}
+
+.amount {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.note {
+  color: var(--color-text-subtle);
+  font-size: var(--text-sm);
+}
+
+.stepList {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-left: var(--space-5);
+  max-width: var(--width-prose);
+}
+
+.stepList li {
+  line-height: var(--leading-relaxed);
+  padding-left: var(--space-2);
+}
+
+.none {
+  color: var(--color-text-subtle);
+}
