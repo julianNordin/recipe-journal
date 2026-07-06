@@ -1,4 +1,4 @@
-import type { Difficulty, PrismaClient } from "@/generated/prisma/client";
+import type { Difficulty, Prisma, PrismaClient } from "@/generated/prisma/client";
 
 /**
  * Read queries for recipes.
@@ -18,6 +18,125 @@ import type { Difficulty, PrismaClient } from "@/generated/prisma/client";
 /** Published recipes only. Drafts are never counted here. */
 export async function countPublishedRecipes(db: PrismaClient): Promise<number> {
   return db.recipe.count({ where: { status: "PUBLISHED" } });
+}
+
+/** What a recipe card shows. Deliberately without the body. */
+export type RecipeListItem = {
+  id: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  difficulty: Difficulty;
+  prepMinutes: number;
+  cookMinutes: number;
+  publishedAt: Date | null;
+  author: { name: string | null };
+  tags: { slug: string; name: string }[];
+};
+
+export type RecipePage = {
+  items: RecipeListItem[];
+  /** The size of the whole filtered set, not of this page. */
+  total: number;
+};
+
+/**
+ * A page of published recipes, newest first, optionally filtered to one tag.
+ *
+ * **The sort has a tiebreaker and it is load-bearing.** Ordering by
+ * `publishedAt` alone leaves recipes published in the same instant in an order
+ * nothing guarantees, and offset paging asks a separate question per page -- so
+ * an order that changes between the questions shows one recipe twice and never
+ * shows another. `id` breaks the tie, and it is a uuid v7, so it is
+ * time-ordered and the tiebreak agrees with the intent of the sort rather than
+ * fighting it.
+ *
+ * Not a theoretical worry: with the tiebreaker removed, the database test that
+ * edits a recipe between page views returns `["Tie A", "Tie C", "Tie A"]` --
+ * one recipe twice, one never. An UPDATE writes a new tuple at the end of the
+ * heap, which is enough to reorder the next scan.
+ *
+ * `total` is counted, not derived from `items.length`, because the pager needs
+ * to know a second page exists while looking at the first.
+ */
+export async function listPublishedRecipes(
+  db: PrismaClient,
+  options: { skip: number; take: number; tagSlug?: string },
+): Promise<RecipePage> {
+  // One `where`, used by both the page query and the count, so the total can
+  // never describe a different filter than the items.
+  const where: Prisma.RecipeWhereInput = {
+    status: "PUBLISHED",
+    ...(options.tagSlug === undefined
+      ? {}
+      : { tags: { some: { tag: { slug: options.tagSlug } } } }),
+  };
+
+  const [rows, total] = await Promise.all([
+    db.recipe.findMany({
+      where,
+      orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+      skip: options.skip,
+      take: options.take,
+      select: {
+        id: true,
+        title: true,
+        summary: true,
+        difficulty: true,
+        prepMinutes: true,
+        cookMinutes: true,
+        publishedAt: true,
+        author: { select: { name: true } },
+        slugs: { where: { isCurrent: true }, select: { slug: true } },
+        tags: { select: { tag: { select: { slug: true, name: true } } } },
+      },
+    }),
+    db.recipe.count({ where }),
+  ]);
+
+  return {
+    items: rows.flatMap(({ slugs, tags, ...recipe }) => {
+      const slug = slugs[0]?.slug;
+      // A recipe with no current slug has no URL, so a card for it would link
+      // nowhere. Dropping it is the honest rendering, not a workaround: the
+      // partial unique index allows at most one current slug, it does not
+      // require one. `flatMap` rather than a filter-then-map so the narrowing
+      // survives into the returned type.
+      if (slug === undefined) return [];
+      return [{ ...recipe, slug, tags: tags.map(({ tag }) => tag) }];
+    }),
+    total,
+  };
+}
+
+/**
+ * Tags that at least one published recipe carries, with their counts.
+ *
+ * A tag used only by drafts is left out entirely. Listing it would offer a
+ * link to an empty page, and would quietly disclose that an unpublished recipe
+ * exists under that name.
+ */
+export async function listTags(
+  db: PrismaClient,
+): Promise<{ slug: string; name: string; recipeCount: number }[]> {
+  const tags = await db.tag.findMany({
+    where: { recipes: { some: { recipe: { status: "PUBLISHED" } } } },
+    orderBy: { name: "asc" },
+    select: {
+      slug: true,
+      name: true,
+      _count: { select: { recipes: { where: { recipe: { status: "PUBLISHED" } } } } },
+    },
+  });
+
+  return tags.map(({ slug, name, _count }) => ({ slug, name, recipeCount: _count.recipes }));
+}
+
+export async function findTagBySlug(
+  db: PrismaClient,
+  slug: string,
+): Promise<{ slug: string; name: string } | null> {
+  return db.tag.findUnique({ where: { slug }, select: { slug: true, name: true } });
 }
 
 /**
