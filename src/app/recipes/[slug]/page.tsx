@@ -7,7 +7,7 @@ import { renderMarkdown, toPlainText } from "@/domain/markdown";
 import { readingTime } from "@/domain/reading-time";
 import type { Difficulty } from "@/generated/prisma/client";
 import { db } from "@/server/db";
-import { findPublishedRecipeBySlug } from "@/server/recipes/queries";
+import { findPublishedRecipeBySlug, listPublishedRecipeSlugs } from "@/server/recipes/queries";
 
 import styles from "./page.module.css";
 
@@ -26,6 +26,23 @@ import styles from "./page.module.css";
  * so this is one query per page view rather than two.
  */
 const getRecipe = cache((slug: string) => findPublishedRecipeBySlug(db, slug));
+
+/**
+ * Prerender the recipes that exist at build time.
+ *
+ * Published ones only, so a draft is never written into the build output. The
+ * route stays open: a slug not in this list still renders on demand, which is
+ * what keeps a recipe published after the build reachable at all.
+ *
+ * **It is also where Phase 16's lesson starts.** These pages are now rendered
+ * once, at build, and nothing here tells Next when a recipe changes -- so an
+ * edit will not appear until something revalidates. That is the bug that phase
+ * is meant to show before fixing, and this is the line that creates it.
+ */
+export async function generateStaticParams() {
+  const slugs = await listPublishedRecipeSlugs(db);
+  return slugs.map((slug) => ({ slug }));
+}
 
 const DIFFICULTY_LABEL: Record<Difficulty, string> = {
   EASY: "Easy",

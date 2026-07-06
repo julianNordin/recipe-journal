@@ -1,0 +1,43 @@
+.header {
+  padding-block: var(--space-7) var(--space-5);
+}
+
+.header h1 {
+  font-family: var(--font-serif);
+  font-size: var(--text-3xl);
+}
+
+.list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: var(--space-3);
+  list-style: none;
+}
+
+.tag {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: inherit;
+  transition: border-color var(--transition-fast);
+}
+
+.tag:hover {
+  border-color: var(--color-accent);
+}
+
+.name {
+  font-weight: 600;
+}
+
+.count {
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+  font-variant-numeric: tabular-nums;
+}

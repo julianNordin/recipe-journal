@@ -93,17 +93,26 @@ test.describe("server rendering", () => {
     const response = await request.get("/recipes/brown-butter-cardamom-buns");
     const html = stripReactMarkers(await response.text());
 
+    // A real 404, not a soft one. Worth asserting rather than assuming: Next
+    // returns 200 for a notFound() raised after the response has started
+    // streaming, so this is a property of how the page is written -- the
+    // recipe is looked up and rejected before anything is sent -- and not
+    // something the framework guarantees on its own.
+    expect(response.status()).toBe(404);
+
     expect(html).not.toContain("Brown butter cardamom buns");
     expect(html).toContain("Not found");
-
-    // The status is 200, not 404, and that is Next's documented behaviour
-    // rather than a bug here: notFound() can only set a status while the
-    // response has not started, and a dynamic route streams. Next compensates
-    // with a robots noindex, so the draft stays out of search results. The
-    // assertion that matters is the one above -- nothing about the draft is
-    // disclosed.
-    expect(html).toContain('name="robots"');
     expect(html).toContain("noindex");
+  });
+
+  test("a slug that never existed is a 404 too", async ({ request }) => {
+    // The control for the test above: if every unknown URL 404s, the draft
+    // test is not evidence that drafts specifically are hidden. Both matter,
+    // and Phase 14 turns the pair into a rule about authors rather than
+    // about existence.
+    const response = await request.get("/recipes/no-such-recipe-anywhere");
+
+    expect(response.status()).toBe(404);
   });
 
   test("a published recipe is not marked noindex", async ({ request }) => {

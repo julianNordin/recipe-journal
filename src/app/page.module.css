@@ -26,3 +26,14 @@
   gap: var(--space-4);
   padding-bottom: var(--space-7);
 }
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  gap: var(--space-5);
+  list-style: none;
+}
+
+.more {
+  margin-top: var(--space-2);
+}

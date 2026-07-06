@@ -132,6 +132,22 @@ export async function listTags(
   return tags.map(({ slug, name, _count }) => ({ slug, name, recipeCount: _count.recipes }));
 }
 
+/**
+ * The current slug of every published recipe.
+ *
+ * For `generateStaticParams`. Slugs only -- prerendering needs the parameter,
+ * not the recipe, and each page fetches its own content anyway.
+ */
+export async function listPublishedRecipeSlugs(db: PrismaClient): Promise<string[]> {
+  const rows = await db.recipeSlug.findMany({
+    where: { isCurrent: true, recipe: { status: "PUBLISHED" } },
+    select: { slug: true },
+    orderBy: { slug: "asc" },
+  });
+
+  return rows.map((row) => row.slug);
+}
+
 export async function findTagBySlug(
   db: PrismaClient,
   slug: string,

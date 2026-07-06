@@ -1,9 +1,13 @@
+import { RecipeCard } from "@/components/recipes/RecipeCard";
 import { LinkButton } from "@/components/ui/Button";
 import { Badge, Card, Container, EmptyState } from "@/components/ui/Surfaces";
 import { db } from "@/server/db";
-import { countPublishedRecipes } from "@/server/recipes/queries";
+import { listPublishedRecipes } from "@/server/recipes/queries";
 
 import styles from "./page.module.css";
+
+/** How many recipes the front page shows before sending people to the index. */
+const LATEST_COUNT = 3;
 
 /**
  * An async Server Component. It awaits a database query and renders the result
@@ -15,7 +19,7 @@ import styles from "./page.module.css";
  * imported there so the same functions can run against a test container.
  */
 export default async function Home() {
-  const published = await countPublishedRecipes(db);
+  const { items, total } = await listPublishedRecipes(db, { skip: 0, take: LATEST_COUNT });
 
   return (
     <Container>
@@ -35,17 +39,31 @@ export default async function Home() {
 
       <section className={styles.section} aria-labelledby="latest">
         <h2 id="latest">Latest</h2>
-        <Card>
-          {published === 0 ? (
+
+        {items.length === 0 ? (
+          <Card>
             <EmptyState title="Nothing published yet">
               The database is connected and answering. Recipes arrive with the authoring flow.
             </EmptyState>
-          ) : (
-            <p>
-              {published} published {published === 1 ? "recipe" : "recipes"}.
-            </p>
-          )}
-        </Card>
+          </Card>
+        ) : (
+          <>
+            <ul className={styles.grid}>
+              {items.map((recipe) => (
+                <li key={recipe.id}>
+                  <RecipeCard recipe={recipe} />
+                </li>
+              ))}
+            </ul>
+            {total > items.length ? (
+              <p className={styles.more}>
+                <LinkButton href="/recipes" variant="secondary" size="sm">
+                  All {total} recipes
+                </LinkButton>
+              </p>
+            ) : null}
+          </>
+        )}
       </section>
     </Container>
   );
