@@ -1,0 +1,25 @@
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block: var(--space-7) var(--space-5);
+}
+
+.header h1 {
+  font-family: var(--font-serif);
+  font-size: var(--text-3xl);
+}
+
+.count {
+  color: var(--color-text-subtle);
+  font-size: var(--text-sm);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr));
+  gap: var(--space-5);
+  list-style: none;
+}
