@@ -54,5 +54,16 @@ export default defineConfig({
     reuseExistingServer: !process.env.CI,
     timeout: 180_000,
     stdout: "pipe",
+    env: {
+      /*
+       * **NEXTAUTH_URL has to name the port the tests are actually served on.**
+       * NextAuth builds absolute URLs from it -- callbacks, and the
+       * destination after signOut -- so leaving it at the development value
+       * sends the browser to :3000 mid-test. That failed as "the header has no
+       * Sign in link", because the page it landed on was whatever else happened
+       * to be running there, which in one run was a months-old dev server.
+       */
+      NEXTAUTH_URL: "http://localhost:3001",
+    },
   },
 });

@@ -1,5 +1,6 @@
 import "dotenv/config";
 
+import { hashPassword } from "../src/server/auth/password";
 import { createPrismaClient } from "../src/server/prisma";
 
 /**
@@ -26,6 +27,15 @@ const AT = {
   draft: new Date("2026-07-06T11:10:00.000Z"),
 } as const;
 
+/**
+ * The demo password, in the clear and on purpose.
+ *
+ * Seeded accounts exist so the project can be cloned and signed into. A secret
+ * nobody is told is the same as no account at all, and inventing a random one
+ * per run would mean reading it out of the database to use it.
+ */
+const DEMO_PASSWORD = "recipe-journal-demo";
+
 const TAGS = [
   { slug: "bread", name: "Bread" },
   { slug: "soup", name: "Soup" },
@@ -40,25 +50,41 @@ async function main() {
   }
 
   // --- Authors ------------------------------------------------------------
-  // No password hashes yet; phase 10 introduces argon2 and fills these in.
+  /*
+   * Both demo accounts share one password, printed at the end of the run.
+   *
+   * It is hashed with the same argon2id parameters the application uses, so
+   * signing in as a seeded author exercises the real verification path rather
+   * than a shortcut around it. `update` sets the hash too, so an existing
+   * database from before phase 10 gains one on the next seed instead of
+   * quietly staying unable to sign in.
+   *
+   * These are throwaway accounts on example.com with a password written down
+   * in a public repository. That is the point -- a reviewer should be able to
+   * clone this, seed it and sign in, without an OAuth app or an invitation.
+   */
+  const demoPasswordHash = await hashPassword(DEMO_PASSWORD);
+
   const ada = await db.user.upsert({
     where: { email: "ada@example.com" },
-    update: {},
+    update: { passwordHash: demoPasswordHash },
     create: {
       email: "ada@example.com",
       name: "Ada Lindqvist",
       role: "AUTHOR",
+      passwordHash: demoPasswordHash,
       createdAt: AT.ada,
     },
   });
 
   const linus = await db.user.upsert({
     where: { email: "linus@example.com" },
-    update: {},
+    update: { passwordHash: demoPasswordHash },
     create: {
       email: "linus@example.com",
       name: "Linus Berg",
       role: "AUTHOR",
+      passwordHash: demoPasswordHash,
       createdAt: AT.linus,
     },
   });
@@ -143,6 +169,9 @@ async function main() {
     tags: await db.tag.count(),
   };
   console.log("seeded", counts);
+  // Printed rather than left to be found in this file. Somebody who has just
+  // cloned and seeded should be able to sign in from what the terminal said.
+  console.log(`demo sign-in: ada@example.com or linus@example.com / ${DEMO_PASSWORD}`);
 }
 
 type SeedRecipe = {

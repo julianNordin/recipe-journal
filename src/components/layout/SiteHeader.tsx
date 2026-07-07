@@ -1,13 +1,18 @@
 import Link from "next/link";
 
+import { HeaderAuth } from "@/components/auth/HeaderAuth";
 import { Container } from "@/components/ui/Surfaces";
 
 import styles from "./SiteHeader.module.css";
 
 /**
- * A plain server component. The signed-in state arrives in Phase 10 and will
- * be passed down as a prop rather than fetched here -- a header that reaches
- * for the session itself makes every page that renders it dynamic.
+ * A server component, and it stays one.
+ *
+ * The signed-in state is a client component inside it rather than a prop, for
+ * the reason this comment carried from Phase 02: reading the session cookie on
+ * the server opts a route out of static rendering, and this header sits in the
+ * root layout -- so it would be every route. HeaderAuth explains the trade in
+ * full.
  */
 export function SiteHeader() {
   return (
@@ -28,6 +33,7 @@ export function SiteHeader() {
             <Link href="/tags" className={styles.navLink}>
               Tags
             </Link>
+            <HeaderAuth />
           </nav>
         </div>
       </Container>

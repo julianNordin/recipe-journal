@@ -1,0 +1,44 @@
+.placeholder {
+  display: inline-block;
+  width: 5rem;
+  height: 1rem;
+}
+
+.signIn,
+.who {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.signIn:hover,
+.who:hover {
+  color: var(--color-accent);
+}
+
+.account {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.who {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.signOut {
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.signOut:hover {
+  color: var(--color-accent);
+}
