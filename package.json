@@ -24,10 +24,12 @@
     "test": "npm run test:unit && npm run test:db"
   },
   "dependencies": {
+    "@node-rs/argon2": "^2.2.0",
     "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "^7.10.0",
     "dotenv": "^17.4.2",
     "next": "16.3.3",
+    "next-auth": "^4.24.15",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "rehype-sanitize": "^6.0.0",
