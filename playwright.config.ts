@@ -11,7 +11,7 @@ import { defineConfig, devices } from "@playwright/test";
  * can be running.
  *
  * The suite needs Postgres up and seeded: `npm run db:up` first. The seed is
- * idempotent -- phase 05 has a test for that -- so re-running it before every
+ * idempotent -- `tests/db/seed.test.ts` proves it -- so re-running it before every
  * build is safe and keeps the fixtures honest.
  */
 export default defineConfig({

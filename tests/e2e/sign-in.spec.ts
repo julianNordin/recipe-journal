@@ -11,7 +11,7 @@ import { expect, test } from "@playwright/test";
  * reads it.
  *
  * The seeded accounts are the fixture. `npm run test:e2e` seeds before it
- * builds, and the seed is idempotent.
+ * builds, and the seed is idempotent -- see `tests/db/seed.test.ts`.
  */
 
 const EMAIL = "ada@example.com";
