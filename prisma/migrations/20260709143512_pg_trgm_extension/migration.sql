@@ -1,0 +1,11 @@
+-- Trigram matching, for the search phase.
+--
+-- Prisma's schema language cannot declare an extension, so this is hand
+-- written like the constraints before it. It belonged with them and was
+-- missed; creating it here rather than alongside the GIN index that needs it
+-- keeps the two separable, since the index is drift Prisma *does* see and the
+-- extension is not.
+--
+-- IF NOT EXISTS because a database restored from a dump may already have it,
+-- and this migration must not be the reason a restore fails to migrate.
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
