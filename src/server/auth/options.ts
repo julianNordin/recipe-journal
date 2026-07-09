@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import { env } from "@/env";
 import { db } from "@/server/db";
 
+import { createAuthAdapter } from "./adapter";
 import { authenticate } from "./authenticate";
 
 /**
@@ -17,6 +18,24 @@ import { authenticate } from "./authenticate";
  */
 export const authOptions: NextAuthOptions = {
   secret: env.NEXTAUTH_SECRET,
+
+  /**
+   * Wired in unconditionally, though only OAuth uses it.
+   *
+   * A credentials sign-in never touches the adapter -- NextAuth branches on
+   * the account type and reads the user straight out of `authorize` -- so with
+   * GitHub unconfigured this does nothing at all. It is still here rather than
+   * behind the same flag as the provider, because two shapes of `authOptions`
+   * is two things to reason about, and the one that runs in production would
+   * be the one with no test naming it.
+   *
+   * What it does when GitHub *is* configured: creates the user on a first
+   * sign-in, writes the `accounts` row that links a GitHub identity to that
+   * user, and finds them again by that row on every sign-in after. See
+   * `./adapter.ts` for why none of that is type-checked, and
+   * `tests/db/auth-adapter.test.ts` for what checks it instead.
+   */
+  adapter: createAuthAdapter(db),
 
   /**
    * JWT, and not by preference: **NextAuth refuses database sessions whenever
