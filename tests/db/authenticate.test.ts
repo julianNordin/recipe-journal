@@ -61,7 +61,9 @@ describe("authenticate", () => {
   it("rejects an email nobody has", async () => {
     await makeAccount();
 
-    expect(await authenticate(db(), { email: "nobody@example.com", password: PASSWORD })).toBeNull();
+    expect(
+      await authenticate(db(), { email: "nobody@example.com", password: PASSWORD }),
+    ).toBeNull();
   });
 
   it("matches the email case-insensitively", async () => {
