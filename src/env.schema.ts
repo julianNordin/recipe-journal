@@ -71,7 +71,20 @@ export function parseEnv(source: Record<string, string | undefined>): ServerEnv 
   return env;
 }
 
-/** True when both halves of the GitHub OAuth credentials are present. */
-export function isGitHubEnabled(env: ServerEnv): boolean {
+/** A validated environment that has both halves of the GitHub credentials. */
+export type GitHubEnv = ServerEnv & { GITHUB_ID: string; GITHUB_SECRET: string };
+
+/**
+ * True when both halves of the GitHub OAuth credentials are present.
+ *
+ * A type predicate rather than a plain boolean, so the caller that has just
+ * asked gets to read the two values without asserting they are there. The
+ * alternative is `env.GITHUB_ID!` at the one site that has already checked --
+ * a non-null assertion whose justification lives in a different function.
+ *
+ * `parseEnv` is what makes the predicate honest: it rejects half a pair, so
+ * one of the two being set is not a state this type has to describe.
+ */
+export function isGitHubEnabled(env: ServerEnv): env is GitHubEnv {
   return env.GITHUB_ID !== undefined && env.GITHUB_SECRET !== undefined;
 }

@@ -1,7 +1,38 @@
+.surface {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
 .form {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+.github {
+  width: 100%;
+}
+
+/*
+ * A rule with a word in it. The lines are drawn with a border on two flex
+ * children created here rather than with an <hr>, because an <hr> is a
+ * semantic break between sections and this is one decision with two ways to
+ * make it.
+ */
+.divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.divider::before,
+.divider::after {
+  content: "";
+  flex: 1;
+  border-top: 1px solid var(--color-border);
 }
 
 .error {

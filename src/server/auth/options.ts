@@ -6,6 +6,7 @@ import { db } from "@/server/db";
 
 import { createAuthAdapter } from "./adapter";
 import { authenticate } from "./authenticate";
+import { oauthProviders } from "./providers";
 
 /**
  * The one place `authOptions` is defined, and -- via `src/server/session.ts`
@@ -52,6 +53,14 @@ export const authOptions: NextAuthOptions = {
   pages: { signIn: "/signin" },
 
   providers: [
+    /*
+     * GitHub first, and only when it is configured -- `oauthProviders` yields
+     * an empty list otherwise, so a clone with no OAuth app registered gets a
+     * working credentials sign-in rather than a button that dead-ends on
+     * somebody else's error page. See ./providers.ts.
+     */
+    ...oauthProviders(env),
+
     CredentialsProvider({
       name: "Email and password",
       credentials: {

@@ -76,6 +76,21 @@ export default defineConfig({
        * to be running there, which in one run was a months-old dev server.
        */
       NEXTAUTH_URL: "http://localhost:3001",
+
+      /*
+       * Fake, and enough. GitHub sign-in is optional -- the app omits the
+       * button entirely when these are unset -- so without them the whole
+       * provider is untestable here.
+       *
+       * Nothing in the suite completes a handshake: the one test that clicks
+       * the button intercepts the navigation to github.com and asserts on
+       * where the browser was being sent. That is the half this project owns.
+       * Whether GitHub then accepts the client id is GitHub's business, and
+       * asserting on it would mean a network call, a real OAuth app, and a
+       * test that fails when someone else's site is down.
+       */
+      GITHUB_ID: "Iv1.playwrightfixture",
+      GITHUB_SECRET: "playwright-fixture-secret",
     },
   },
 });

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { SignInForm } from "@/components/auth/SignInForm";
 import { Card, Container } from "@/components/ui/Surfaces";
 import { safeRedirectPath } from "@/domain/safe-redirect";
+import { env, isGitHubEnabled } from "@/env";
 import { getSession } from "@/server/session";
 
 import styles from "./page.module.css";
@@ -45,7 +46,13 @@ export default async function SignInPage(props: PageProps<"/signin">) {
       <div className={styles.wrap}>
         <h1 className={styles.title}>Sign in</h1>
         <Card>
-          <SignInForm callbackUrl={callbackUrl} />
+          {/*
+           * Read on the server and handed down, because the environment is
+           * server-only and this is a client component. Reached through the
+           * same predicate `oauthProviders` uses, so the button and the
+           * provider list cannot disagree about whether GitHub exists.
+           */}
+          <SignInForm callbackUrl={callbackUrl} githubEnabled={isGitHubEnabled(env)} />
         </Card>
       </div>
     </Container>

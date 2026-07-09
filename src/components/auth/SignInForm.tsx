@@ -10,17 +10,26 @@ import { Field } from "@/components/ui/Field";
 import styles from "./SignInForm.module.css";
 
 /**
- * Email and password, posted through NextAuth's client helper.
+ * The whole sign-in surface: GitHub if it is configured, then email and
+ * password, both posted through NextAuth's client helper.
  *
- * `redirect: false` so a failure comes back as a value instead of a bounce to
- * NextAuth's own error page. That keeps the wrong-password case on this form,
- * with the address still filled in.
+ * `redirect: false` on the credentials call so a failure comes back as a value
+ * instead of a bounce to NextAuth's own error page. That keeps the
+ * wrong-password case on this form, with the address still filled in. The
+ * GitHub call is the opposite by necessity -- an OAuth handshake *is* a
+ * redirect, and there is no version of it that stays here.
  *
  * `signIn` needs no `SessionProvider`: it posts to the auth endpoint and reads
  * nothing from context. Only `useSession` needs the provider, which is why the
  * only one in this app wraps the header.
  */
-export function SignInForm({ callbackUrl }: { callbackUrl: string }) {
+export function SignInForm({
+  callbackUrl,
+  githubEnabled,
+}: {
+  callbackUrl: string;
+  githubEnabled: boolean;
+}) {
   const router = useRouter();
   // Ids still come from here rather than from Field, because the form-level
   // error is one message about the pair -- both inputs point at it, so it
@@ -59,53 +68,79 @@ export function SignInForm({ callbackUrl }: { callbackUrl: string }) {
   }
 
   return (
-    // `void` rather than handing an async function straight to onSubmit: the
-    // handler returns a promise nothing awaits, and an unhandled rejection in
-    // it would be silent. Everything that can fail here is already caught.
-    <form
-      className={styles.form}
-      onSubmit={(event) => {
-        void onSubmit(event);
-      }}
-      noValidate
-    >
-      {error === null ? null : (
-        // aria-live so it is announced when it appears, and referenced by both
-        // inputs so a screen reader reaches it from either field.
-        <p className={styles.error} id={errorId} role="alert">
-          {error}
-        </p>
+    <div className={styles.surface}>
+      {!githubEnabled ? null : (
+        <>
+          {/*
+           * Outside the <form> below, deliberately. A button inside a form
+           * submits it, and this one has nothing to do with the credentials
+           * in it.
+           */}
+          <Button
+            variant="secondary"
+            size="lg"
+            className={styles.github}
+            onClick={() => {
+              void signIn("github", { callbackUrl });
+            }}
+          >
+            Continue with GitHub
+          </Button>
+          <p className={styles.divider}>or</p>
+        </>
       )}
 
-      <Field
-        id={emailId}
-        invalid={error !== null}
-        describedBy={error === null ? undefined : errorId}
-        label="Email"
-        name="email"
-        type="email"
-        autoComplete="username"
-        required
-        value={email}
-        onChange={(event) => setEmail(event.target.value)}
-      />
+      {/*
+       * `void` rather than handing an async function straight to onSubmit: the
+       * handler returns a promise nothing awaits, and an unhandled rejection
+       * in it would be silent. Everything that can fail here is already
+       * caught.
+       */}
+      <form
+        className={styles.form}
+        onSubmit={(event) => {
+          void onSubmit(event);
+        }}
+        noValidate
+      >
+        {error === null ? null : (
+          // aria-live so it is announced when it appears, and referenced by both
+          // inputs so a screen reader reaches it from either field.
+          <p className={styles.error} id={errorId} role="alert">
+            {error}
+          </p>
+        )}
 
-      <Field
-        id={passwordId}
-        invalid={error !== null}
-        describedBy={error === null ? undefined : errorId}
-        label="Password"
-        name="password"
-        type="password"
-        autoComplete="current-password"
-        required
-        value={password}
-        onChange={(event) => setPassword(event.target.value)}
-      />
+        <Field
+          id={emailId}
+          invalid={error !== null}
+          describedBy={error === null ? undefined : errorId}
+          label="Email"
+          name="email"
+          type="email"
+          autoComplete="username"
+          required
+          value={email}
+          onChange={(event) => setEmail(event.target.value)}
+        />
 
-      <Button type="submit" size="lg" disabled={pending}>
-        {pending ? "Signing in…" : "Sign in"}
-      </Button>
-    </form>
+        <Field
+          id={passwordId}
+          invalid={error !== null}
+          describedBy={error === null ? undefined : errorId}
+          label="Password"
+          name="password"
+          type="password"
+          autoComplete="current-password"
+          required
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+        />
+
+        <Button type="submit" size="lg" disabled={pending}>
+          {pending ? "Signing in…" : "Sign in"}
+        </Button>
+      </form>
+    </div>
   );
 }

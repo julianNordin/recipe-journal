@@ -77,6 +77,37 @@ test.describe("sign in", () => {
     await expect(page).toHaveURL("/");
   });
 
+  test("offers GitHub, and the button really starts the handshake", async ({ page }) => {
+    /*
+     * Intercept the departure rather than follow it. What this project owns is
+     * everything up to the redirect: the environment reaching the provider
+     * list, the provider reaching NextAuth's sign-in route, and the callback
+     * URL it builds from NEXTAUTH_URL. Whether github.com then likes the
+     * client id is not this suite's business, and finding out would mean a
+     * real OAuth app and a test that fails when someone else's site is down.
+     */
+    const departure = new Promise<string>((resolve) => {
+      void page.route("https://github.com/**", async (route) => {
+        resolve(route.request().url());
+        await route.abort();
+      });
+    });
+
+    await page.goto("/signin");
+    await page.getByRole("button", { name: "Continue with GitHub" }).click();
+
+    const url = new URL(await departure);
+    expect(url.origin + url.pathname).toBe("https://github.com/login/oauth/authorize");
+    expect(url.searchParams.get("client_id")).toBe("Iv1.playwrightfixture");
+    // Built from NEXTAUTH_URL. Wrong here and the handshake completes onto a
+    // port nothing is serving -- which is how a stale value stayed hidden
+    // through three earlier failures in this project.
+    expect(url.searchParams.get("redirect_uri")).toBe(
+      "http://localhost:3001/api/auth/callback/github",
+    );
+    expect(url.searchParams.get("scope")).toBe("read:user user:email");
+  });
+
   test("an in-site callback URL is honoured", async ({ page }) => {
     // The control: if every callbackUrl were ignored, the test above would
     // pass while the feature did nothing.
