@@ -98,10 +98,6 @@ Consequently **`prisma db push` is not used in this repository** — it reconcil
 database to the schema file and would silently drop all of them. Only `migrate dev`
 and `migrate deploy`, which replay the migration history verbatim.
 
-**The `sessions` table is created and never read.** A credentials provider forces
-JWT sessions, which live in a cookie; the NextAuth adapter's contract still requires
-the table to exist. It is documented in the schema rather than quietly present.
-
 ### Working with the database
 
 ```bash
@@ -114,6 +110,68 @@ npm run db:studio    # browse it
 The seed is idempotent — every write is an upsert keyed on something stable, so
 running it repeatedly is a no-op. Every date in it is a fixed literal, so the
 fixture is identical on every run.
+
+## Authentication
+
+Two ways in, and one of them is optional.
+
+**Email and password**, hashed with Argon2id at OWASP's current parameters — 19 MiB, two
+passes, one lane, stated rather than defaulted. The seed creates two demo authors, so a
+fresh clone signs in with nothing else configured. Everything that decides who someone is
+lives in `authenticate(db, input)` and is tested against real Postgres, including nine
+shapes of input no form would send; the provider's `authorize` is a one-liner calling it,
+because that endpoint is public and its body is whatever the caller chose to post.
+
+**GitHub**, when `GITHUB_ID` and `GITHUB_SECRET` are both set. Half a pair is rejected at
+boot rather than at the callback. With neither set, the provider is absent and so is the
+button — offering a handshake that dead-ends on somebody else's error page is worse than
+offering nothing.
+
+**Sessions are JWTs, and not by preference.** NextAuth refuses database sessions whenever a
+credentials provider is configured: there is no session row it can revoke for a login it did
+not create. So `session.strategy` is forced to `jwt`, and **the adapter's `sessions` table
+is created by a migration and read by nothing.** Saying so here, in the schema and in a doc
+comment beats shipping a table that looks load-bearing and is not.
+
+One consequence worth knowing: a role change does not take effect until the next sign-in.
+The claims are copied onto the token once, on the request that signs in, because that is the
+only request where the user is in hand. That is a property of JWT sessions rather than of
+this code.
+
+### The adapter, and what checks it now
+
+`@next-auth/prisma-adapter` was last published in 2023 and types its argument as the
+`PrismaClient` from `@prisma/client`. That type no longer exists: the package's entry point
+re-exports `.prisma/client`, which only the legacy generator wrote, and Prisma 7 does not
+ship it.
+
+The expectation was a documented cast. There is nothing to cast: **an import that does not
+resolve degrades to `any`**, so the adapter accepts this client, a string, or anything else,
+with no assertion to write and nothing to explain. That is worse than a cast, which is at
+least visible enough to attract a comment.
+
+So the checking moved to a test. `tests/db/auth-adapter.test.ts` drives the adapter against
+real Postgres in the order a GitHub sign-in walks it — create a user from a profile carrying
+no id, link an account row, find the user back through the compound key, unlink, delete.
+That it bites was measured: renaming that compound key so the adapter and the client
+disagree fails exactly three of its twelve cases, while `tsc --noEmit` stays green.
+
+### `proxy.ts` is a redirect, not a guard
+
+Next 16 renamed `middleware.ts` to `proxy.ts` and dropped edge-runtime support there, which
+also removes the reason `next-auth/middleware` exists — that wrapper solves an edge problem
+this project does not have. What is left is twelve explicit lines: read the token, or send
+the visitor to `/signin` with a `callbackUrl` built through the same rule the sign-in page
+validates it with.
+
+**It is not a security boundary, and the distinction is the point of the project.** A proxy
+knows who is asking and nothing about what they are asking for — not which recipe a Server
+Action is about to write to, not whether this author owns it — and it only sees what the
+router sees. The real check goes on the single seam every mutation passes through.
+
+It also has to live in `src/`, beside `app/`, because that is the only directory Next looks
+in. A `proxy.ts` at the repository root builds clean, typechecks clean, lints clean and
+never runs. The build's route table prints `Proxy (Middleware)` when it has been found.
 
 ## Scripts
 
@@ -128,12 +186,18 @@ fixture is identical on every run.
 
 ## Testing
 
-Two tiers, kept apart on purpose.
+Three tiers, kept apart on purpose.
 
 | Tier   | Command             | Needs Docker | What it covers                                        |
 | ------ | ------------------- | ------------ | ----------------------------------------------------- |
 | `unit` | `npm run test:unit` | no           | Pure logic — validation, domain rules                 |
 | `db`   | `npm run test:db`   | yes          | Real Postgres: queries, constraints, delete behaviour |
+| `e2e`  | `npm run test:e2e`  | yes          | A production build in a browser, and one without JS   |
+
+Tests are written inside the phase that adds the feature, never deferred to a testing phase
+at the end. The browser tier exists because some things have no smaller test: an async
+Server Component cannot be rendered by any React testing library, and a proxy is compiled
+into its own bundle and cannot be imported at all.
 
 The fast tier has no database dependency at all, verified by running it with
 `DATABASE_URL` unset. That matters more than it sounds: a fast tier that cannot
