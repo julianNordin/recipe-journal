@@ -51,7 +51,19 @@ export default defineConfig({
   webServer: {
     command: "npm run db:seed && npm run build && npx next start -p 3001",
     url: "http://localhost:3001",
-    reuseExistingServer: !process.env.CI,
+    /*
+     * **Never reuse a server this config did not start.** The usual
+     * `!process.env.CI` saves a rebuild locally and has now produced three
+     * wrong results in this project: a run that reported a failure already
+     * fixed, and two where `signOut` navigated to :3000 because the adopted
+     * server had been started without the `NEXTAUTH_URL` below -- landing on
+     * whatever else was listening there, once a months-old dev server.
+     *
+     * A server started by hand is not the server described here, and adopting
+     * one silently tests something other than what the config says. With this
+     * false, an occupied port is a loud failure instead.
+     */
+    reuseExistingServer: false,
     timeout: 180_000,
     stdout: "pipe",
     env: {
