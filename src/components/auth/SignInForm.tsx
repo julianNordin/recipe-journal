@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useId, useState } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { Field } from "@/components/ui/Field";
 
 import styles from "./SignInForm.module.css";
 
@@ -21,6 +22,9 @@ import styles from "./SignInForm.module.css";
  */
 export function SignInForm({ callbackUrl }: { callbackUrl: string }) {
   const router = useRouter();
+  // Ids still come from here rather than from Field, because the form-level
+  // error is one message about the pair -- both inputs point at it, so it
+  // cannot live inside either field.
   const errorId = useId();
   const emailId = useId();
   const passwordId = useId();
@@ -73,35 +77,31 @@ export function SignInForm({ callbackUrl }: { callbackUrl: string }) {
         </p>
       )}
 
-      <div className={styles.field}>
-        <label htmlFor={emailId}>Email</label>
-        <input
-          id={emailId}
-          name="email"
-          type="email"
-          autoComplete="username"
-          required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          aria-describedby={error === null ? undefined : errorId}
-          aria-invalid={error === null ? undefined : true}
-        />
-      </div>
+      <Field
+        id={emailId}
+        invalid={error !== null}
+        describedBy={error === null ? undefined : errorId}
+        label="Email"
+        name="email"
+        type="email"
+        autoComplete="username"
+        required
+        value={email}
+        onChange={(event) => setEmail(event.target.value)}
+      />
 
-      <div className={styles.field}>
-        <label htmlFor={passwordId}>Password</label>
-        <input
-          id={passwordId}
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          required
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          aria-describedby={error === null ? undefined : errorId}
-          aria-invalid={error === null ? undefined : true}
-        />
-      </div>
+      <Field
+        id={passwordId}
+        invalid={error !== null}
+        describedBy={error === null ? undefined : errorId}
+        label="Password"
+        name="password"
+        type="password"
+        autoComplete="current-password"
+        required
+        value={password}
+        onChange={(event) => setPassword(event.target.value)}
+      />
 
       <Button type="submit" size="lg" disabled={pending}>
         {pending ? "Signing in…" : "Sign in"}
