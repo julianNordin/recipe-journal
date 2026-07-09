@@ -30,7 +30,7 @@ Under construction. The roadmap below is ticked as each phase lands.
 - [x] 08 — Recipe detail, the SSR proof and Playwright
 - [x] 09 — Listing, tags and paging
 - [x] 10 — Authentication: NextAuth and credentials
-- [ ] 11 — Authentication: GitHub OAuth and route protection
+- [x] 11 — Authentication: GitHub OAuth and route protection
 - [ ] 12 — Studio: dashboard and the create/edit actions
 - [ ] 13 — The ingredient and step editor
 - [ ] 14 — Authorization at the Server Action boundary
