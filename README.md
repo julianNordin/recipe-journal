@@ -31,7 +31,7 @@ Under construction. The roadmap below is ticked as each phase lands.
 - [x] 09 — Listing, tags and paging
 - [x] 10 — Authentication: NextAuth and credentials
 - [x] 11 — Authentication: GitHub OAuth and route protection
-- [ ] 12 — Studio: dashboard and the create/edit actions
+- [x] 12 — Studio: dashboard and the create/edit actions
 - [ ] 13 — The ingredient and step editor
 - [ ] 14 — Authorization at the Server Action boundary
 - [ ] 15 — The publish workflow and slug history
