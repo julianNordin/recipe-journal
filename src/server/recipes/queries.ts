@@ -307,3 +307,70 @@ export async function listRecipesByAuthor(
 
   return rows.map(({ slugs, ...recipe }) => ({ ...recipe, slug: slugs[0]?.slug ?? null }));
 }
+
+/**
+ * A uuid, as Postgres would accept one.
+ *
+ * The id comes out of a URL, so it is whatever somebody typed. Handing
+ * `/studio/nonsense/edit` straight to Prisma raises `invalid input syntax for
+ * type uuid` from the driver -- a 500 on a page whose honest answer is 404.
+ */
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Everything the studio's form needs to render an existing recipe. */
+export type AuthoredRecipe = {
+  id: string;
+  title: string;
+  summary: string | null;
+  body: string;
+  heroImageUrl: string | null;
+  servings: number;
+  prepMinutes: number;
+  cookMinutes: number;
+  difficulty: Difficulty;
+  status: RecipeStatus;
+  slug: string | null;
+};
+
+/**
+ * One recipe, if it belongs to this author.
+ *
+ * **Scoped in the `where`, not checked afterwards.** A recipe that does not
+ * exist and a recipe belonging to somebody else return the same `null`, on
+ * purpose and for the same reason `requireRecipeAuthor` raises the same error
+ * for both: telling them apart lets a stranger probe for which ids are real.
+ * The page turns that null into a 404.
+ *
+ * This is the *read* half of the studio's authorization, and it is worth being
+ * clear that it is only that half. It decides what the editor renders. It has
+ * nothing to say about what a Server Action does with an id somebody posted --
+ * see `src/app/studio/actions.ts`.
+ */
+export async function findAuthoredRecipe(
+  db: PrismaClient,
+  params: { id: string; authorId: string },
+): Promise<AuthoredRecipe | null> {
+  if (!UUID.test(params.id)) return null;
+
+  const recipe = await db.recipe.findFirst({
+    where: { id: params.id, authorId: params.authorId },
+    select: {
+      id: true,
+      title: true,
+      summary: true,
+      body: true,
+      heroImageUrl: true,
+      servings: true,
+      prepMinutes: true,
+      cookMinutes: true,
+      difficulty: true,
+      status: true,
+      slugs: { where: { isCurrent: true }, select: { slug: true } },
+    },
+  });
+
+  if (recipe === null) return null;
+
+  const { slugs, ...rest } = recipe;
+  return { ...rest, slug: slugs[0]?.slug ?? null };
+}

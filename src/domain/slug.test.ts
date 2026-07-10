@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { slugify, uniqueSlug } from "./slug";
+import { slugSearchPrefix, slugify, uniqueSlug } from "./slug";
 
 describe("slugify", () => {
   it("lowercases and joins words with hyphens", () => {
@@ -85,5 +85,35 @@ describe("uniqueSlug", () => {
   it("is deterministic for a given set of taken slugs", () => {
     const taken = ["soup", "soup-2"];
     expect(uniqueSlug("Soup", taken)).toBe(uniqueSlug("Soup", taken));
+  });
+});
+
+describe("slugSearchPrefix", () => {
+  it("is the whole slug for an ordinary title", () => {
+    expect(slugSearchPrefix("Cardamom buns")).toBe("cardamom-buns");
+  });
+
+  it("survives a title with nothing sluggable in it", () => {
+    expect(slugSearchPrefix("!!! ???")).toBe("recipe");
+  });
+
+  it("prefixes every slug uniqueSlug can return, including the truncated ones", () => {
+    /*
+     * The coupling this function exists for, asserted rather than described.
+     * A long base is shortened before the suffix goes on, so `base + "-"` is
+     * not a prefix of the result -- and a caller that queried for that prefix
+     * would miss the collision it was looking for.
+     */
+    const title = `${"Cardamom ".repeat(20)}buns`;
+    const prefix = slugSearchPrefix(title);
+    const taken = new Set<string>();
+
+    for (let n = 0; n < 12; n += 1) {
+      const slug = uniqueSlug(title, taken);
+      expect(slug.startsWith(prefix)).toBe(true);
+      taken.add(slug);
+    }
+
+    expect(taken.size).toBe(12);
   });
 });

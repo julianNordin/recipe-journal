@@ -36,3 +36,20 @@
   font-size: var(--text-sm);
   color: var(--color-danger);
 }
+
+/*
+ * The textarea and the select share every input style; only these differ.
+ * Both compose `.input` rather than restating it, so a change to focus rings
+ * or invalid borders reaches all three controls.
+ */
+.textarea {
+  min-height: 8rem;
+  resize: vertical;
+  line-height: 1.6;
+}
+
+.select {
+  /* Native chrome for the arrow. A custom one is a lot of CSS to reproduce
+     something every platform already draws correctly. */
+  appearance: auto;
+}

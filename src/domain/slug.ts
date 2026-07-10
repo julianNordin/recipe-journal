@@ -10,6 +10,15 @@
 const MAX_SLUG_LENGTH = 120;
 
 /**
+ * Room reserved for a collision suffix, as `-` plus up to three digits.
+ *
+ * `uniqueSlug` shortens the base to make room, so a suffixed slug is not
+ * always the base with something appended -- which is exactly what a caller
+ * looking for existing collisions has to know. See `slugSearchPrefix`.
+ */
+const MAX_SUFFIX_LENGTH = 4;
+
+/**
  * Characters that look like letters to a person and are not ASCII. Normalising
  * to NFD and stripping combining marks turns "Crème Brûlée" into
  * "creme-brulee" rather than "cr-me-br-l-e", which is the difference between a
@@ -66,4 +75,25 @@ export function uniqueSlug(input: string, taken: Iterable<string>): string {
     const candidate = `${trimmed}${suffix}`;
     if (!used.has(candidate)) return candidate;
   }
+}
+
+/**
+ * The prefix that every slug `uniqueSlug` could return for this input begins
+ * with.
+ *
+ * **For the caller that has to find the collisions in the first place.**
+ * `uniqueSlug` takes the set of taken slugs, which somebody has to fetch, and
+ * fetching every slug in the table to suffix one recipe is not a plan. The
+ * obvious query -- everything equal to the base or starting with the base and
+ * a dash -- is wrong, and quietly: a long title's suffixed slug is
+ * *shortened* to fit the column, so it does not start with the whole base at
+ * all. The lookup misses it, `uniqueSlug` hands back a slug already in use,
+ * and the insert dies on the primary key.
+ *
+ * So the truncation rule lives here, next to the code that applies it, rather
+ * than being re-derived by a query in another layer.
+ */
+export function slugSearchPrefix(input: string): string {
+  const base = slugify(input) || "recipe";
+  return base.slice(0, MAX_SLUG_LENGTH - MAX_SUFFIX_LENGTH);
 }

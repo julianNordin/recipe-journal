@@ -195,3 +195,11 @@
 .none {
   color: var(--color-text-subtle);
 }
+
+.hero {
+  width: 100%;
+  height: auto;
+  margin-bottom: var(--space-6);
+  border-radius: var(--radius-md);
+  object-fit: cover;
+}

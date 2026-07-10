@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { listRecipesByAuthor } from "@/server/recipes/queries";
+import { findAuthoredRecipe, listRecipesByAuthor } from "@/server/recipes/queries";
 
 import { cleanDatabasePerTest, seqScanOnlyDb } from "./setup/database";
 import { makePublishedRecipe, makeRecipe, makeUser } from "./setup/factories";
@@ -146,5 +146,64 @@ describe("the order the dashboard shows them in", () => {
 
     expect(first).toEqual(second);
     expect(first).toHaveLength(3);
+  });
+});
+
+describe("findAuthoredRecipe", () => {
+  it("returns the recipe to its own author", async () => {
+    const author = await makeUser(db());
+    const recipe = await makeRecipe(db(), { author, title: "Mine", slug: "mine" });
+
+    const found = await findAuthoredRecipe(db(), { id: recipe.id, authorId: author.id });
+
+    expect(found?.title).toBe("Mine");
+    expect(found?.slug).toBe("mine");
+  });
+
+  it("returns null to anybody else", async () => {
+    const ada = await makeUser(db());
+    const linus = await makeUser(db());
+    const recipe = await makeRecipe(db(), { author: ada });
+
+    // Null rather than a distinguishable refusal: "not yours" and "does not
+    // exist" are the same answer, so a stranger cannot use this to find out
+    // which ids are real.
+    expect(await findAuthoredRecipe(db(), { id: recipe.id, authorId: linus.id })).toBeNull();
+  });
+
+  it("returns null for an id that exists nowhere", async () => {
+    const author = await makeUser(db());
+
+    expect(
+      await findAuthoredRecipe(db(), {
+        id: "01920000-0000-7000-8000-000000000000",
+        authorId: author.id,
+      }),
+    ).toBeNull();
+  });
+
+  it.each(["nonsense", "", "1; DROP TABLE recipes", "00000000-0000-0000-0000-00000000000"])(
+    "returns null rather than raising for the malformed id %o",
+    async (id) => {
+      const author = await makeUser(db());
+
+      /*
+       * The id comes out of a URL. Handed straight to Prisma, anything that is
+       * not a uuid raises `invalid input syntax for type uuid` from the driver
+       * -- a 500 on a page whose honest answer is 404.
+       */
+      expect(await findAuthoredRecipe(db(), { id, authorId: author.id })).toBeNull();
+    },
+  );
+
+  it("carries a published recipe's status through", async () => {
+    const author = await makeUser(db());
+    const recipe = await makePublishedRecipe(db(), { author });
+
+    // The editor renders differently for something that is already public,
+    // and Phase 15 will lean on it harder.
+    expect((await findAuthoredRecipe(db(), { id: recipe.id, authorId: author.id }))?.status).toBe(
+      "PUBLISHED",
+    );
   });
 });

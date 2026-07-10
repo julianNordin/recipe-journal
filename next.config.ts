@@ -1,5 +1,7 @@
 import type { NextConfig } from "next";
 
+import { HERO_IMAGE_HOSTS } from "./src/domain/hero-image-hosts";
+
 const nextConfig: NextConfig = {
   // Next 16 removed `next lint` and with it the `eslint` config key. Linting
   // runs through the ESLint CLI instead -- see the `lint` script.
@@ -20,6 +22,23 @@ const nextConfig: NextConfig = {
    * cannot start.
    */
   serverExternalPackages: ["@prisma/client", "@node-rs/argon2"],
+
+  /**
+   * The hosts `next/image` may fetch from, read from the same array the form
+   * validates against.
+   *
+   * **A wildcard hostname here would make the image optimiser an open proxy.**
+   * `next/image` fetches whatever URL it is given, on this server, then caches
+   * and re-serves it under this origin -- so "accept any image URL" is an
+   * invitation to have this server fetch anything for anybody.
+   *
+   * Imported rather than restated. Two copies would drift, and the failure is
+   * unpleasant in both directions: a host the form accepts and this rejects
+   * throws at render time, on the page, after the recipe was saved.
+   */
+  images: {
+    remotePatterns: HERO_IMAGE_HOSTS.map((hostname) => ({ protocol: "https", hostname }) as const),
+  },
 };
 
 export default nextConfig;

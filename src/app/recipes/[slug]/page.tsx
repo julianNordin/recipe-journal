@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 
@@ -106,6 +107,31 @@ export default async function RecipePage(props: PageProps<"/recipes/[slug]">) {
   return (
     <Container>
       <article className={styles.recipe}>
+        {recipe.heroImageUrl === null ? null : (
+          /*
+           * `next/image` rather than an `<img>`, for the two things it does
+           * that matter here: it reserves the space before the bytes arrive,
+           * so the heading does not jump when the photo lands, and it serves a
+           * size the device asked for instead of whatever was pasted in.
+           *
+           * It will only load a host listed in `next.config.ts`, which reads
+           * the same array the form validates against -- a URL that reached
+           * this line has already been through both.
+           *
+           * Empty alt text on purpose. The photograph repeats the title
+           * directly above it, so describing it again is noise to anyone
+           * listening rather than looking; decorative is the honest marking.
+           */
+          <Image
+            src={recipe.heroImageUrl}
+            alt=""
+            width={1200}
+            height={630}
+            className={styles.hero}
+            priority
+          />
+        )}
+
         <header className={styles.header}>
           <h1 className={styles.title}>{recipe.title}</h1>
 
