@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { Badge } from "@/components/ui/Surfaces";
+import { formatDay } from "@/domain/format-date";
 import type { RecipeListItem } from "@/server/recipes/queries";
 
 import styles from "./RecipeCard.module.css";
@@ -38,14 +39,7 @@ export function RecipeCard({ recipe }: { recipe: RecipeListItem }) {
         {recipe.publishedAt ? (
           <>
             {" · "}
-            <time dateTime={recipe.publishedAt.toISOString()}>
-              {recipe.publishedAt.toLocaleDateString("en-GB", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-                timeZone: "UTC",
-              })}
-            </time>
+            <time dateTime={recipe.publishedAt.toISOString()}>{formatDay(recipe.publishedAt)}</time>
           </>
         ) : null}
       </p>

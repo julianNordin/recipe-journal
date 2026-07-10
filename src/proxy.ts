@@ -1,7 +1,7 @@
 import { getToken } from "next-auth/jwt";
 import { NextResponse, type NextRequest } from "next/server";
 
-import { safeRedirectPath } from "@/domain/safe-redirect";
+import { signInPath } from "@/domain/safe-redirect";
 import { env } from "@/env";
 
 /**
@@ -46,9 +46,6 @@ export const config = {
   matcher: ["/studio/:path*"],
 };
 
-/** Where a signed-out visitor is sent when the path cannot be preserved. */
-const STUDIO_HOME = "/studio";
-
 export async function proxy(request: NextRequest): Promise<NextResponse> {
   /*
    * `getToken` reads and decrypts the session cookie. The secret comes from
@@ -64,20 +61,17 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
   if (token !== null) return NextResponse.next();
 
-  const destination = new URL("/signin", request.url);
-
   /*
-   * Through the same rule the sign-in page validates it with. The value is
-   * built here rather than received, so it is not being sanitised -- it is
-   * being kept inside the shape the page will accept. Skip this and the two
-   * ends can drift: the page silently falls back to `/` and the visitor lands
-   * somewhere they did not ask for, with nothing anywhere reporting an error.
+   * `signInPath` rather than a URL built here, because `/studio` builds the
+   * same thing when the proxy did not run at all -- and two spellings of the
+   * query parameter's name would drift silently, the sign-in page quietly
+   * falling back to `/` with nothing reporting an error. It also validates the
+   * destination with the rule that page reads it back through.
    */
-  const callbackUrl = safeRedirectPath(
-    request.nextUrl.pathname + request.nextUrl.search,
-    STUDIO_HOME,
+  const destination = new URL(
+    signInPath(request.nextUrl.pathname + request.nextUrl.search),
+    request.url,
   );
-  destination.searchParams.set("callbackUrl", callbackUrl);
 
   return NextResponse.redirect(destination);
 }

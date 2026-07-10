@@ -29,7 +29,7 @@ async function signIn(page: Page) {
   await page.getByLabel("Email").fill(EMAIL);
   await page.getByLabel("Password").fill(PASSWORD);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("/");
+  await expect(page).toHaveURL("/studio");
 }
 
 test.describe("the studio redirect", () => {
@@ -70,11 +70,10 @@ test.describe("the studio redirect", () => {
 
     await page.goto("/studio");
 
-    // Through, not necessarily anywhere useful -- there is no studio page
-    // until Phase 12, so this currently arrives at a 404. What is asserted is
-    // that the proxy did not send them to /signin, which is what would happen
-    // if the token were being read wrongly or not at all.
+    // What is asserted is that the proxy did not send them to /signin, which
+    // is what would happen if the token were being read wrongly or not at all.
     await expect(page).toHaveURL("/studio");
+    await expect(page.getByRole("heading", { name: "Studio", level: 1 })).toBeVisible();
   });
 
   test("leaves the public site alone", async ({ page }) => {

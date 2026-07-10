@@ -1,0 +1,107 @@
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: flex-end;
+  justify-content: space-between;
+  padding-block: var(--space-6) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.title {
+  font-family: var(--font-serif);
+  font-size: var(--text-2xl);
+}
+
+.who {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.section {
+  padding-block: var(--space-6);
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+  font-size: var(--text-lg);
+}
+
+.count {
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-weight: 400;
+  color: var(--color-text-muted);
+  background: var(--color-accent-subtle);
+  border-radius: var(--radius-full, 999px);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.rowMain {
+  flex: 1 1 18rem;
+  min-width: 0;
+}
+
+.rowTitle {
+  font-size: var(--text-base);
+}
+
+/*
+ * The anchor covers the title only. Stretching it over the row would swallow
+ * the "View" link inside it and give a screen reader a link whose name is the
+ * whole row -- the same reason RecipeCard links its heading and not its card.
+ */
+.rowLink {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.rowLink:hover {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.rowSummary {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+  overflow-wrap: anywhere;
+}
+
+.rowMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.edited {
+  white-space: nowrap;
+}
+
+.view {
+  color: var(--color-accent);
+}

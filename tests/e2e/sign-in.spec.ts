@@ -28,8 +28,8 @@ test.describe("sign in", () => {
   test("a seeded author can sign in and out", async ({ page }) => {
     await signIn(page, PASSWORD);
 
-    // Landed somewhere real, and the header knows who it is.
-    await expect(page).toHaveURL("/");
+    // The studio is where signing in with no particular destination lands.
+    await expect(page).toHaveURL("/studio");
     await expect(page.getByRole("banner").getByText("Ada Lindqvist")).toBeVisible();
 
     await page.getByRole("button", { name: "Sign out" }).click();
@@ -74,7 +74,8 @@ test.describe("sign in", () => {
     await page.getByLabel("Password").fill(PASSWORD);
     await page.getByRole("button", { name: "Sign in" }).click();
 
-    await expect(page).toHaveURL("/");
+    // Falls back to the default destination rather than to example.com.
+    await expect(page).toHaveURL("/studio");
   });
 
   test("offers GitHub, and the button really starts the handshake", async ({ page }) => {

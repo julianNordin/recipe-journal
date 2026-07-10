@@ -47,11 +47,14 @@ function AuthState() {
   return (
     <div className={styles.account}>
       {/*
-       * Plain text, not a link, until Phase 12 builds `/studio` for it to
-       * point at. A header link to a route that 404s is worse than no link,
-       * and "wire this up later" is easier to forget than a comment is.
+       * The name is the way into the studio. A header link is not a
+       * permission -- `/studio` reads the session itself and redirects, and
+       * every mutation behind it is guarded server-side -- so this is
+       * navigation, nothing more.
        */}
-      <span className={styles.who}>{session.user.name ?? session.user.email}</span>
+      <Link href="/studio" className={styles.who}>
+        {session.user.name ?? session.user.email}
+      </Link>
       <button
         type="button"
         className={styles.signOut}

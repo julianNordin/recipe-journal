@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { cache } from "react";
 
 import { Badge, Container } from "@/components/ui/Surfaces";
+import { formatLongDay } from "@/domain/format-date";
 import { renderMarkdown, toPlainText } from "@/domain/markdown";
 import { readingTime } from "@/domain/reading-time";
 import type { Difficulty } from "@/generated/prisma/client";
@@ -116,12 +117,7 @@ export default async function RecipePage(props: PageProps<"/recipes/[slug]">) {
               <>
                 {" · "}
                 <time dateTime={recipe.publishedAt.toISOString()}>
-                  {recipe.publishedAt.toLocaleDateString("en-GB", {
-                    day: "numeric",
-                    month: "long",
-                    year: "numeric",
-                    timeZone: "UTC",
-                  })}
+                  {formatLongDay(recipe.publishedAt)}
                 </time>
               </>
             ) : null}

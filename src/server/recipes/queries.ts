@@ -1,4 +1,4 @@
-import type { Difficulty, Prisma, PrismaClient } from "@/generated/prisma/client";
+import type { Difficulty, Prisma, PrismaClient, RecipeStatus } from "@/generated/prisma/client";
 
 /**
  * Read queries for recipes.
@@ -252,4 +252,58 @@ export async function findPublishedRecipeBySlug(
     // that the relation is many-to-many.
     tags: recipe.tags.map(({ tag }) => tag),
   };
+}
+
+/* --- The studio ---------------------------------------------------------- */
+
+/** One row of an author's dashboard. */
+export type AuthoredRecipeListItem = {
+  id: string;
+  title: string;
+  summary: string | null;
+  status: RecipeStatus;
+  /** Null for a recipe that has no current slug. See the note below. */
+  slug: string | null;
+  updatedAt: Date;
+  publishedAt: Date | null;
+};
+
+/**
+ * Everything one author has written, drafts included, newest edit first.
+ *
+ * **Scoped by author in the query, not filtered afterwards.** The dashboard is
+ * the one page in this application where a draft is deliberately visible, so
+ * it is the one place where `authorId` is doing real work rather than
+ * repeating what `status` already decided. Fetching everything and filtering
+ * in the page would put that decision somewhere a `select` cannot enforce it.
+ *
+ * **A recipe with no current slug is still listed**, which is the opposite of
+ * what `listPublishedRecipes` does with one. That function drops it because a
+ * public card would link nowhere; the studio links by id, so dropping it here
+ * would make the recipe permanently unreachable by the only person who could
+ * give it a slug back.
+ *
+ * The sort has a tiebreaker for the reason the public listing does: an order
+ * that is not total can differ between two identical requests. `id` is a uuid
+ * v7, so it agrees with the intent of the sort instead of fighting it.
+ */
+export async function listRecipesByAuthor(
+  db: PrismaClient,
+  authorId: string,
+): Promise<AuthoredRecipeListItem[]> {
+  const rows = await db.recipe.findMany({
+    where: { authorId },
+    orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+    select: {
+      id: true,
+      title: true,
+      summary: true,
+      status: true,
+      updatedAt: true,
+      publishedAt: true,
+      slugs: { where: { isCurrent: true }, select: { slug: true } },
+    },
+  });
+
+  return rows.map(({ slugs, ...recipe }) => ({ ...recipe, slug: slugs[0]?.slug ?? null }));
 }

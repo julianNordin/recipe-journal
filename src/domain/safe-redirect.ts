@@ -38,6 +38,25 @@ function hasControlOrSpace(value: string): boolean {
   return false;
 }
 
+/**
+ * Where to send somebody who has to sign in first.
+ *
+ * One definition, because there are two callers with no way to notice they had
+ * drifted: `src/proxy.ts` builds this when it turns a signed-out visitor away,
+ * and `/studio` builds it when the proxy did not run at all. A page that
+ * hard-coded the query parameter's name would keep working right up until the
+ * sign-in page stopped reading that name.
+ *
+ * The destination goes through `safeRedirectPath` on the way in as well as on
+ * the way out. Both callers construct it rather than receive it, so this is
+ * not sanitising -- it is keeping the value inside the shape the sign-in page
+ * will accept, so the two ends cannot drift into a silent fallback to `/`.
+ */
+export function signInPath(destination: string): string {
+  const safe = safeRedirectPath(destination, "/");
+  return `/signin?callbackUrl=${encodeURIComponent(safe)}`;
+}
+
 export function safeRedirectPath(raw: string | string[] | undefined, fallback: string): string {
   // A repeated query parameter arrives as an array. The first value is the one
   // considered -- picking whichever one passes would let an attacker append a

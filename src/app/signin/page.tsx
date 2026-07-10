@@ -27,12 +27,12 @@ export const metadata: Metadata = {
 /**
  * Where sign-in lands when nothing asked for somewhere specific.
  *
- * The home page for now; Phase 12 points it at `/studio`, which is where an
- * author actually wants to be and which does not exist yet. Sending people to
- * a 404 immediately after a successful sign-in would be a poor first
- * impression of the one flow that has to feel solid.
+ * The studio: somebody who signed in without being sent here by a link came to
+ * write something. A `callbackUrl` still wins, so the far more common route --
+ * following a link into the studio and being bounced here by the proxy -- ends
+ * up exactly where it started.
  */
-const DEFAULT_DESTINATION = "/";
+const DEFAULT_DESTINATION = "/studio";
 
 export default async function SignInPage(props: PageProps<"/signin">) {
   const [searchParams, user] = await Promise.all([props.searchParams, getSession()]);
