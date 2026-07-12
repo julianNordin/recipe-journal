@@ -1,0 +1,157 @@
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/*
+ * Visible to a screen reader and to nobody else. `display: none` and
+ * `visibility: hidden` both remove it from the accessibility tree as well, so
+ * the live region would announce nothing and the row labels would be gone.
+ */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.listHead {
+  display: flex;
+  gap: var(--space-4);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.listTitle {
+  font-size: var(--text-lg);
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  list-style: none;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: start;
+  padding: var(--space-3);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.controls {
+  display: flex;
+  gap: var(--space-1);
+  align-items: center;
+}
+
+.number {
+  min-width: 1.5rem;
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--color-text-subtle);
+  text-align: right;
+}
+
+.control {
+  /* A 2rem square: small on screen, and still a real target on a touchscreen. */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  font: inherit;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.control:hover {
+  color: var(--color-text);
+  border-color: var(--color-text-muted);
+}
+
+.control:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.ingredientFields {
+  display: grid;
+  flex: 1 1 20rem;
+  grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+  gap: var(--space-2);
+}
+
+.input,
+.stepText {
+  font: inherit;
+  padding: var(--space-2);
+  color: var(--color-text);
+  background: var(--color-bg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+}
+
+.input:focus-visible,
+.stepText:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.short {
+  /* Quantity and unit are two or three characters; a full-width box for them
+     invites a paragraph. */
+  max-width: 7rem;
+}
+
+.stepText {
+  flex: 1 1 20rem;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.none {
+  font-size: var(--text-sm);
+  color: var(--color-text-subtle);
+}
+
+.saved {
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-success);
+  background: var(--color-success-subtle);
+  border-radius: var(--radius-md);
+}
+
+.problem {
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+  background: var(--color-danger-subtle);
+  border-radius: var(--radius-md);
+}
+
+.actions {
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-border);
+}

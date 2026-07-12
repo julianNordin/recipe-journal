@@ -74,3 +74,34 @@ export function listReducer<T extends Keyed & Positioned>(
       return index === -1 ? current : moveBy(current, index, action.delta);
   }
 }
+
+/**
+ * What to announce after a move.
+ *
+ * **A move that changed nothing still has to say something.** The buttons stay
+ * enabled at both ends -- disabling one takes the focus with it, so pressing
+ * "up" repeatedly would dump the reader on the body the moment the row arrived
+ * first -- which means "up" on the first row is a real interaction with no
+ * visible result. Silence there reads as a broken button to anyone not looking
+ * at the screen.
+ *
+ * Positions are announced from one, because that is what the row is labelled
+ * with.
+ */
+export function describeMove<T extends Keyed & Positioned>(
+  before: readonly T[],
+  after: readonly T[],
+  key: string,
+  label: string,
+): string {
+  const from = before.findIndex((item) => item.key === key);
+  const to = after.findIndex((item) => item.key === key);
+  if (from === -1 || to === -1) return "";
+
+  if (from === to) {
+    if (after.length === 1) return `${label} is the only one.`;
+    return `${label} is already ${from === 0 ? "first" : "last"}.`;
+  }
+
+  return `Moved ${label} to position ${String(to + 1)} of ${String(after.length)}.`;
+}

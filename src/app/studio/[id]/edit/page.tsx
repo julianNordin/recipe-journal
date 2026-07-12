@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { RecipeForm } from "@/components/studio/RecipeForm";
+import { RecipeListsEditor } from "@/components/studio/RecipeListsEditor";
 import { Badge, Card, Container } from "@/components/ui/Surfaces";
 import { signInPath } from "@/domain/safe-redirect";
 import { db } from "@/server/db";
@@ -57,16 +58,30 @@ export default async function EditRecipePage(props: PageProps<"/studio/[id]/edit
 
       <div className={styles.section}>
         <Card>
-          {/*
-           * Ingredients and steps are not here yet -- Phase 13 builds the
-           * ordered-list editor, which is its own phase because reordering two
-           * lists by keyboard is the fiddliest thing in the project.
-           */}
           <RecipeForm
             action={updateRecipeAction}
             defaults={recipe}
             submitLabel="Save changes"
             cancelHref="/studio"
+          />
+        </Card>
+      </div>
+
+      {/*
+       * A second form, and a second save.
+       *
+       * The recipe's own fields and its two ordered lists have nothing in
+       * common to reconcile -- one is a flat set of values, the other a list
+       * whose order is the content. One submit for both would mean a handler
+       * juggling two shapes and a button that saves things the author did not
+       * touch.
+       */}
+      <div className={styles.section}>
+        <Card>
+          <RecipeListsEditor
+            recipeId={recipe.id}
+            ingredients={recipe.ingredients}
+            steps={recipe.steps}
           />
         </Card>
       </div>

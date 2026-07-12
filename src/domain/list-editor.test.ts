@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { listReducer, type ListAction } from "./list-editor";
+import { describeMove, listReducer, type ListAction } from "./list-editor";
 
 /**
  * The reducer behind the ingredient and step editor.
@@ -198,5 +198,43 @@ describe("what the reducer never does", () => {
     // The invariant the database enforces at COMMIT, held at every step so no
     // save can ever be refused for it.
     expect(positions(result)).toEqual([...result.keys()]);
+  });
+});
+
+describe("describeMove", () => {
+  const moved = (key: string, delta: number) => {
+    const before = three();
+    return { before, after: apply(before, { type: "move", key, delta }) };
+  };
+
+  it("says where the row ended up", () => {
+    const { before, after } = moved("a", 1);
+    expect(describeMove(before, after, "a", "Flour")).toBe("Moved Flour to position 2 of 3.");
+  });
+
+  it("says so when nothing moved, rather than nothing", () => {
+    /*
+     * The buttons stay enabled at both ends -- disabling one takes the focus
+     * with it -- so this is a real interaction with no visible result. Silence
+     * here reads as a broken button to anyone not looking at the screen.
+     */
+    const { before, after } = moved("a", -1);
+    expect(describeMove(before, after, "a", "Flour")).toBe("Flour is already first.");
+  });
+
+  it("knows which end it is at", () => {
+    const { before, after } = moved("c", 1);
+    expect(describeMove(before, after, "c", "Salt")).toBe("Salt is already last.");
+  });
+
+  it("does not call a lone row first", () => {
+    // It is also last, so neither word is the useful one.
+    const before = [row("a", 0)];
+    const after = apply(before, { type: "move", key: "a", delta: -1 });
+    expect(describeMove(before, after, "a", "Flour")).toBe("Flour is the only one.");
+  });
+
+  it("has nothing to say about a row that is not there", () => {
+    expect(describeMove(three(), three(), "zz", "Ghost")).toBe("");
   });
 });
