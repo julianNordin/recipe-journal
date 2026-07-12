@@ -3,8 +3,9 @@
 import { redirect } from "next/navigation";
 
 import { parseRecipeInput, type RecipeFieldErrors } from "@/domain/recipe-input";
+import { parseRecipeListsJson, type RecipeListsErrors } from "@/domain/recipe-lists";
 import { db } from "@/server/db";
-import { createRecipe, updateRecipe } from "@/server/recipes/commands";
+import { createRecipe, replaceRecipeLists, updateRecipe } from "@/server/recipes/commands";
 import { requireUser } from "@/server/session";
 
 /**
@@ -136,5 +137,49 @@ export async function updateRecipeAction(
    * real and visible, and it is the bug Phase 16 opens by demonstrating rather
    * than describing.
    */
+  return { status: "saved" };
+}
+
+/** What the list editor carries back. Its own union: different failures. */
+export type RecipeListsFormState =
+  { status: "idle" } | { status: "saved" } | { status: "invalid"; errors: RecipeListsErrors };
+
+/**
+ * Save a recipe's ingredients and steps.
+ *
+ * A second action rather than a second half of `updateRecipeAction`, because
+ * the two submissions have nothing in common: one is a flat set of fields, the
+ * other two ordered lists posted as JSON. Folding them together would mean one
+ * handler reconciling both shapes and one button that saves things the author
+ * did not touch.
+ *
+ * ⚠️ **Like `updateRecipeAction`, this authenticates and does not check
+ * ownership -- Phase 14's subject, left standing on purpose.** The same
+ * reasoning applies and the same one line closes both: the editor page is
+ * author-scoped, so this is unreachable through the interface, and
+ * "unreachable through the interface" is exactly what makes it the bug worth
+ * demonstrating. See the note above `updateRecipeAction`.
+ */
+export async function saveRecipeListsAction(
+  _previous: RecipeListsFormState,
+  formData: FormData,
+): Promise<RecipeListsFormState> {
+  await requireUser();
+
+  const id = formData.get("id");
+  if (typeof id !== "string" || id === "") {
+    throw new Error("saveRecipeListsAction called without a recipe id");
+  }
+
+  const parsed = parseRecipeListsJson(formData.get("lists"));
+  if (!parsed.ok) return { status: "invalid", errors: parsed.errors };
+
+  await replaceRecipeLists(db, {
+    recipeId: id,
+    ingredients: parsed.value.ingredients,
+    steps: parsed.value.steps,
+  });
+
+  // No revalidation here either -- see the note in `updateRecipeAction`.
   return { status: "saved" };
 }

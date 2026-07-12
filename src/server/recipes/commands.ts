@@ -1,4 +1,5 @@
 import type { RecipeInput } from "@/domain/recipe-input";
+import type { IngredientInput, StepInput } from "@/domain/recipe-lists";
 import type { PrismaClient } from "@/generated/prisma/client";
 
 import { nextAvailableSlug } from "./slugs";
@@ -68,5 +69,52 @@ export async function updateRecipe(
     where: { id: params.id },
     data: params.input,
     select: { id: true },
+  });
+}
+
+/**
+ * Replace a recipe's ingredients and steps with the lists it was given.
+ *
+ * **A replace, not a diff, because the editor holds the whole list.** It posts
+ * every row every time -- there is no partial update to reconcile -- and two
+ * `deleteMany`s plus two `createMany`s cost four statements whatever the list
+ * length. The obvious alternative, matching incoming rows to existing ones by
+ * id and updating each, is a query per row: the N+1 this project spends Phase
+ * 18 removing, introduced by hand.
+ *
+ * The cost is that row ids change on every save. Nothing references them --
+ * no foreign key points at an ingredient or a step -- and the editor keys off
+ * them only for the render it already has.
+ *
+ * **What this path does *not* do is create the transient duplicate position
+ * the `DEFERRABLE INITIALLY DEFERRED` constraints exist for.** Everything is
+ * deleted before anything is written, so no two rows ever share a position
+ * mid-transaction. Those constraints still decide whether the final state is
+ * legal, and Phase 06's reorder test is what proves they defer -- but it is
+ * worth being straight that a replace does not need the deferral, and that an
+ * in-place reorder is the shape that would.
+ *
+ * Scoped by `recipeId` in every statement. A `deleteMany` without it empties
+ * the table, and every other test here would still pass.
+ */
+export async function replaceRecipeLists(
+  db: PrismaClient,
+  params: { recipeId: string; ingredients: IngredientInput[]; steps: StepInput[] },
+): Promise<void> {
+  const { recipeId, ingredients, steps } = params;
+
+  await db.$transaction(async (tx) => {
+    await tx.recipeIngredient.deleteMany({ where: { recipeId } });
+    await tx.recipeStep.deleteMany({ where: { recipeId } });
+
+    if (ingredients.length > 0) {
+      await tx.recipeIngredient.createMany({
+        data: ingredients.map((item) => ({ ...item, recipeId })),
+      });
+    }
+
+    if (steps.length > 0) {
+      await tx.recipeStep.createMany({ data: steps.map((step) => ({ ...step, recipeId })) });
+    }
   });
 }

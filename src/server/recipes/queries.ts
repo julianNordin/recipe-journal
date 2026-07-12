@@ -330,6 +330,23 @@ export type AuthoredRecipe = {
   difficulty: Difficulty;
   status: RecipeStatus;
   slug: string | null;
+
+  /**
+   * Ordered, and carrying their row ids.
+   *
+   * The editor's reducer addresses rows by a stable key rather than by index,
+   * so anything already saved needs an identity that survives a reorder. The
+   * row's own id is it.
+   */
+  ingredients: {
+    id: string;
+    position: number;
+    quantity: string | null;
+    unit: string | null;
+    item: string;
+    note: string | null;
+  }[];
+  steps: { id: string; position: number; text: string }[];
 };
 
 /**
@@ -366,6 +383,14 @@ export async function findAuthoredRecipe(
       difficulty: true,
       status: true,
       slugs: { where: { isCurrent: true }, select: { slug: true } },
+      ingredients: {
+        orderBy: { position: "asc" },
+        select: { id: true, position: true, quantity: true, unit: true, item: true, note: true },
+      },
+      steps: {
+        orderBy: { position: "asc" },
+        select: { id: true, position: true, text: true },
+      },
     },
   });
 
