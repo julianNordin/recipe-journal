@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { RECIPE_LIMITS } from "@/domain/recipe-input";
+import { LIST_LIMITS } from "@/domain/recipe-lists";
 
 import { cleanDatabasePerTest } from "./setup/database";
-import { makeUser } from "./setup/factories";
+import { makeRecipe, makeUser } from "./setup/factories";
 
 /**
  * The column widths and `RECIPE_LIMITS` are the same numbers, and nothing else
@@ -86,5 +87,34 @@ describe("the widths as the database actually enforces them", () => {
 
   it("rejects a title one character longer", async () => {
     await expect(insertTitle("a".repeat(RECIPE_LIMITS.title + 1))).rejects.toThrow();
+  });
+});
+
+describe("LIST_LIMITS against the two list tables", () => {
+  it("matches the ingredient column widths", async () => {
+    const widths = await columnWidths("recipe_ingredients");
+
+    expect(widths.quantity).toBe(LIST_LIMITS.ingredient.quantity);
+    expect(widths.unit).toBe(LIST_LIMITS.ingredient.unit);
+    expect(widths.item).toBe(LIST_LIMITS.ingredient.item);
+    expect(widths.note).toBe(LIST_LIMITS.ingredient.note);
+  });
+
+  it("matches the step column width", async () => {
+    expect((await columnWidths("recipe_steps")).text).toBe(LIST_LIMITS.step.text);
+  });
+
+  it("enforces the ingredient width at exactly the limit and one past it", async () => {
+    const author = await makeUser(db());
+    const recipe = await makeRecipe(db(), { author });
+
+    const insert = (item: string) =>
+      db().recipeIngredient.create({ data: { recipeId: recipe.id, position: 0, item } });
+
+    const row = await insert("a".repeat(LIST_LIMITS.ingredient.item));
+    expect(row.item).toHaveLength(LIST_LIMITS.ingredient.item);
+
+    await db().recipeIngredient.deleteMany({ where: { recipeId: recipe.id } });
+    await expect(insert("a".repeat(LIST_LIMITS.ingredient.item + 1))).rejects.toThrow();
   });
 });
