@@ -399,3 +399,30 @@ export async function findAuthoredRecipe(
   const { slugs, ...rest } = recipe;
   return { ...rest, slug: slugs[0]?.slug ?? null };
 }
+
+/**
+ * Who wrote a recipe, or null if there is no such recipe.
+ *
+ * **The read behind `requireRecipeAuthor`**, and it lives here rather than in
+ * `src/server/session.ts` for the reason at the top of this file: a function
+ * that reaches for the singleton itself cannot be tested against real
+ * Postgres, and this one is the whole factual content of an authorization
+ * decision. Taking the client is what lets `tests/db/recipe-ownership.test.ts`
+ * ask it the awkward questions directly.
+ *
+ * The id is whatever somebody posted, so a string that is not a uuid at all is
+ * an ordinary case rather than an exceptional one. Handed straight to Prisma
+ * it is `invalid input syntax for type uuid` from Postgres -- an unhandled
+ * error where the honest answer is "no". The same guard `findAuthoredRecipe`
+ * carries, and for the same reason.
+ *
+ * A recipe that is absent and a recipe belonging to somebody else are not
+ * distinguished by the caller, so nothing here needs to hide the difference;
+ * the caller does. See `requireRecipeAuthor`.
+ */
+export async function findRecipeAuthorId(db: PrismaClient, id: string): Promise<string | null> {
+  if (!UUID.test(id)) return null;
+
+  const recipe = await db.recipe.findUnique({ where: { id }, select: { authorId: true } });
+  return recipe?.authorId ?? null;
+}

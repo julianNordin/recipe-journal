@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/server/auth/options";
 import type { SessionUser } from "@/server/auth/types";
 import { db } from "@/server/db";
+import { findRecipeAuthorId } from "@/server/recipes/queries";
 
 export type { SessionUser };
 
@@ -78,17 +79,23 @@ export async function requireUser(): Promise<SessionUser> {
  *
  * A recipe that does not exist and a recipe belonging to somebody else raise
  * the same error, on purpose: distinguishing them would let a stranger probe
- * for which recipe ids are real.
+ * for which recipe ids are real. That is what the single `!==` below is doing
+ * -- `findRecipeAuthorId` returns null for an absent recipe, for an id that is
+ * not a uuid, and for one this database never issued, and none of those can
+ * equal a signed-in user's id.
+ *
+ * The read itself lives in `src/server/recipes/queries.ts` so that it can be
+ * driven against real Postgres with the input an action actually receives,
+ * which is a string somebody posted. This module cannot be: it is
+ * `server-only` and reaches for the singleton, which is right for a session
+ * helper and fatal for a test.
  */
 export async function requireRecipeAuthor(recipeId: string): Promise<SessionUser> {
   const user = await requireUser();
 
-  const recipe = await db.recipe.findUnique({
-    where: { id: recipeId },
-    select: { authorId: true },
-  });
+  const authorId = await findRecipeAuthorId(db, recipeId);
 
-  if (recipe === null || recipe.authorId !== user.id) {
+  if (authorId !== user.id) {
     throw new NotAuthorizedError("That recipe is not yours");
   }
 
