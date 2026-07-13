@@ -1,4 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+
+import { AUTHORS, DEMO_PASSWORD, signIn } from "./support/authors";
 
 /**
  * `src/proxy.ts` -- the redirect that keeps signed-out visitors out of the
@@ -20,17 +22,6 @@ import { expect, test, type Page } from "@playwright/test";
  * "is it wired up at all" is a question only a running server answers, and
  * getting the file in the wrong directory produces no error whatsoever.
  */
-
-const EMAIL = "ada@example.com";
-const PASSWORD = "recipe-journal-demo";
-
-async function signIn(page: Page) {
-  await page.goto("/signin");
-  await page.getByLabel("Email").fill(EMAIL);
-  await page.getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("/studio");
-}
 
 test.describe("the studio redirect", () => {
   test("sends a signed-out visitor to sign in, remembering where they were going", async ({
@@ -58,8 +49,8 @@ test.describe("the studio redirect", () => {
     // sign-in page validates and honours it. Either half can be correct on its
     // own while the pair does nothing.
     await page.goto("/studio");
-    await page.getByLabel("Email").fill(EMAIL);
-    await page.getByLabel("Password").fill(PASSWORD);
+    await page.getByLabel("Email").fill(AUTHORS.ada.email);
+    await page.getByLabel("Password").fill(DEMO_PASSWORD);
     await page.getByRole("button", { name: "Sign in" }).click();
 
     await expect(page).toHaveURL("/studio");

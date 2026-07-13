@@ -1,4 +1,6 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+
+import { AUTHORS, signIn } from "./support/authors";
 
 /**
  * The studio, in a browser.
@@ -14,23 +16,12 @@ import { expect, test, type Page } from "@playwright/test";
  * "only your own" an assertion rather than a description.
  */
 
-const ADA = { email: "ada@example.com", name: "Ada Lindqvist" };
-const PASSWORD = "recipe-journal-demo";
-
-async function signIn(page: Page, email = ADA.email) {
-  await page.goto("/signin");
-  await page.getByLabel("Email").fill(email);
-  await page.getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await expect(page).toHaveURL("/studio");
-}
-
 test.describe("the dashboard", () => {
   test("shows the author their own drafts and published recipes", async ({ page }) => {
     await signIn(page);
 
     await expect(page.getByRole("heading", { name: "Studio", level: 1 })).toBeVisible();
-    await expect(page.getByText(`Signed in as ${ADA.name}`)).toBeVisible();
+    await expect(page.getByText(`Signed in as ${AUTHORS.ada.name}`)).toBeVisible();
 
     const drafts = page.getByRole("region", { name: "Drafts" });
     const published = page.getByRole("region", { name: "Published" });
@@ -72,7 +63,7 @@ test.describe("the dashboard", () => {
     await signIn(page);
     await page.goto("/recipes");
 
-    await page.getByRole("banner").getByRole("link", { name: ADA.name }).click();
+    await page.getByRole("banner").getByRole("link", { name: AUTHORS.ada.name }).click();
 
     await expect(page).toHaveURL("/studio");
   });
@@ -226,7 +217,7 @@ test.describe("editing a recipe", () => {
   test("answers 404 for a recipe belonging to somebody else", async ({ page }) => {
     // Linus's published recipe, opened by Ada. The id is discoverable -- it is
     // on the public page -- so the editor must not render it.
-    await signIn(page, "linus@example.com");
+    await signIn(page, "linus");
     await page
       .getByRole("region", { name: "Published" })
       .getByRole("link", { name: "Yellow split pea soup" })
