@@ -1,4 +1,4 @@
-import { expect, type BrowserContext, type Page } from "@playwright/test";
+import { expect, type Browser, type BrowserContext, type Page } from "@playwright/test";
 
 /**
  * The two seeded authors, and how to become one of them.
@@ -42,6 +42,25 @@ export async function signIn(page: Page, author: AuthorKey = "ada"): Promise<voi
  * `action-boundary.spec.ts`.
  */
 export type SignedInState = Awaited<ReturnType<BrowserContext["storageState"]>>;
+
+/**
+ * Sign in as somebody in a context of their own, and keep only the cookies.
+ *
+ * A second browser context rather than a second page, so the two sessions do
+ * not share a cookie jar -- the whole point is that these are two different
+ * people. The context is closed once its cookies have been read: what comes
+ * back is data, and a request carrying it is that author as far as the server
+ * is concerned. That is the premise `authorization.spec.ts` is built on.
+ */
+export async function signedInAs(browser: Browser, author: AuthorKey): Promise<SignedInState> {
+  const context = await browser.newContext();
+  try {
+    await signIn(await context.newPage(), author);
+    return await context.storageState();
+  } finally {
+    await context.close();
+  }
+}
 
 /**
  * A draft belonging to whoever this page is signed in as, and its editor URL.

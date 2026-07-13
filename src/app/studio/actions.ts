@@ -6,7 +6,7 @@ import { parseRecipeInput, type RecipeFieldErrors } from "@/domain/recipe-input"
 import { parseRecipeListsJson, type RecipeListsErrors } from "@/domain/recipe-lists";
 import { db } from "@/server/db";
 import { createRecipe, replaceRecipeLists, updateRecipe } from "@/server/recipes/commands";
-import { requireUser } from "@/server/session";
+import { requireRecipeAuthor, requireUser } from "@/server/session";
 
 /**
  * Every mutating Server Action in the application, in one file.
@@ -21,15 +21,15 @@ import { requireUser } from "@/server/session";
  *
  * The shape every action follows:
  *
- *   1. establish who is asking, through `src/server/session.ts` and nowhere
- *      else -- one seam, so the guard is one change and its removal is one
- *      mutation test
+ *   1. establish who is asking **and what they are allowed to touch**,
+ *      through `src/server/session.ts` and nowhere else -- one seam, so the
+ *      guard is one change and its removal is one mutation test
  *   2. parse the body with the schema the form was built from
  *   3. call a command in `src/server/recipes/`, which does the writing and
  *      authorizes nothing
  *
- * Authentication comes before parsing, so an anonymous caller is refused
- * without this server doing any work on their input.
+ * Authorization comes before parsing, so a caller with no claim to the recipe
+ * is refused without this server doing any work on the rest of their input.
  */
 
 /**
@@ -92,38 +92,37 @@ export async function createRecipeAction(
 /**
  * Save an edit to an existing recipe.
  *
- * ⚠️ **This action authenticates and does not authorize, and that is not an
- * oversight -- it is Phase 14's subject, left standing on purpose.**
+ * **`requireRecipeAuthor`, not `requireUser`, and that difference is the whole
+ * of this project's security story.** Authentication establishes that
+ * *somebody* is signed in. It says nothing about whose recipe the `id` in this
+ * form names -- and that id arrives in a plain hidden input, written by
+ * whoever sent the request.
  *
- * `requireUser` establishes that *somebody* is signed in. Nothing here checks
- * that the `id` in the form belongs to them. The editor page is scoped by
- * author, so this is unreachable through the interface -- and "unreachable
- * through the interface" is exactly the reasoning that makes this the most
- * common real Next.js security bug. A Server Action is a public endpoint with
- * a stable id; a captured request replayed with a different session's cookie
- * does not go near the page that would have refused to render.
+ * This action shipped without the check for two phases on purpose, so that the
+ * hole could be watched rather than described. A request captured from Ada's
+ * editor and sent again with Linus's cookies answered `{"status":"saved"}` and
+ * left his text in her draft. `tests/e2e/authorization.spec.ts` is that replay,
+ * and it fails again the moment the line below is removed.
  *
- * Phase 14 writes that replay as a failing test, watches it write to another
- * author's draft, then closes it with `requireRecipeAuthor(id)` on the seam in
- * `src/server/session.ts` -- which already exists, already raises the same
- * error for "not yours" and "no such recipe", and is already tested. The one
- * line is deliberately not here yet, because a fix nobody watched fail is a
- * fix nobody can show is working.
- *
- * Recorded in the project notes under *Deferred, on purpose* so it cannot be
- * mistaken for something to rediscover.
+ * Nothing about the interface was wrong, which is the part worth keeping. The
+ * editor page reads through `findAuthoredRecipe`, scoped by author, so no form
+ * this application renders can be made to carry somebody else's id. That is
+ * exactly why the endpoint has to check anyway: the replayed request never
+ * went near the page that would have refused to render.
  */
 export async function updateRecipeAction(
   _previous: RecipeFormState,
   formData: FormData,
 ): Promise<RecipeFormState> {
-  await requireUser();
-
   const id = formData.get("id");
   if (typeof id !== "string" || id === "") {
-    // Not a field error: no form this application renders can produce it.
+    // Read before the session, because authorization cannot be attempted
+    // without it. Not a field error: no form this application renders can
+    // produce this, so a caller who manages it did not come from one.
     throw new Error("updateRecipeAction called without a recipe id");
   }
+
+  await requireRecipeAuthor(id);
 
   const parsed = parseRecipeInput(Object.fromEntries(formData));
   if (!parsed.ok) return { status: "invalid", errors: parsed.errors };
@@ -153,23 +152,23 @@ export type RecipeListsFormState =
  * handler reconciling both shapes and one button that saves things the author
  * did not touch.
  *
- * ⚠️ **Like `updateRecipeAction`, this authenticates and does not check
- * ownership -- Phase 14's subject, left standing on purpose.** The same
- * reasoning applies and the same one line closes both: the editor page is
- * author-scoped, so this is unreachable through the interface, and
- * "unreachable through the interface" is exactly what makes it the bug worth
- * demonstrating. See the note above `updateRecipeAction`.
+ * **A second export is a second endpoint, and it needed its own guard.** This
+ * one carried the identical hole and was the easier of the two to overlook: a
+ * second save on the same page, doing work that looks like part of the first.
+ * Every `"use server"` export is published separately and authorized
+ * separately, or it is not authorized at all. The replay in
+ * `tests/e2e/authorization.spec.ts` covers both for that reason.
  */
 export async function saveRecipeListsAction(
   _previous: RecipeListsFormState,
   formData: FormData,
 ): Promise<RecipeListsFormState> {
-  await requireUser();
-
   const id = formData.get("id");
   if (typeof id !== "string" || id === "") {
     throw new Error("saveRecipeListsAction called without a recipe id");
   }
+
+  await requireRecipeAuthor(id);
 
   const parsed = parseRecipeListsJson(formData.get("lists"));
   if (!parsed.ok) return { status: "invalid", errors: parsed.errors };
