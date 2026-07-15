@@ -164,3 +164,77 @@ test.describe("a recipe can only be changed by its author", () => {
     expect(await stored(page, editUrl, "summary")).toBe("Ada wrote this, again");
   });
 });
+
+test.describe("a draft is not published, and that is a different rule", () => {
+  /** Ada's, seeded as a draft, and with a slug of its own from the moment it existed. */
+  const DRAFT = { slug: "brown-butter-cardamom-buns", title: "Brown butter cardamom buns" };
+  const PUBLISHED = { slug: "no-knead-sourdough", title: "No-knead sourdough" };
+
+  test("its public page is 404 to another author", async ({ page }) => {
+    await signIn(page, "linus");
+
+    const response = await page.goto(`/recipes/${DRAFT.slug}`);
+
+    // A real 404, not a page that renders and hides things. Every notFound()
+    // in this application answers with the status code, which was measured
+    // rather than assumed -- the framework returns 200 for a notFound() raised
+    // after a response has begun streaming, so this is a property of how the
+    // page is written.
+    expect(response?.status()).toBe(404);
+    await expect(page.getByText(DRAFT.title)).toBeHidden();
+  });
+
+  test("and 404 to the author who wrote it, which is the point", async ({ page }) => {
+    await signIn(page, "ada");
+
+    const response = await page.goto(`/recipes/${DRAFT.slug}`);
+
+    /*
+     * **Publication and ownership are two rules, enforced in two places, and
+     * conflating them is how one of them ends up not enforced at all.**
+     *
+     * `/recipes/<slug>` asks whether a recipe is published. It has nothing to
+     * do with who is asking, so it answers 404 to the author as readily as to
+     * a stranger. Ownership is a question for the studio and for the actions,
+     * and it is answered there.
+     *
+     * A detail page that quietly rendered a draft "because it is yours" would
+     * be the same page for everyone the moment the query stopped being scoped,
+     * and a reviewer looking at it would see a page that works.
+     */
+    expect(response?.status()).toBe(404);
+
+    // Her editor, meanwhile, opens it -- so none of this is a missing recipe.
+    await page.goto("/studio");
+    await expect(
+      page.getByRole("region", { name: "Drafts" }).getByRole("link", { name: DRAFT.title }),
+    ).toBeVisible();
+  });
+
+  test("it is in no public collection either", async ({ request }) => {
+    for (const path of ["/", "/recipes", "/tags/bread"]) {
+      const html = await (await request.get(path)).text();
+
+      /*
+       * The control on every one of these, and it is doing real work on the
+       * last: the draft carries the `bread` tag and so does the published
+       * sourdough. Without the second assertion, a tag page that had simply
+       * broken would pass.
+       */
+      expect(html, `${path} leaked the draft`).not.toContain(DRAFT.title);
+      expect(html, `${path} is not showing anything`).toContain(PUBLISHED.title);
+    }
+  });
+
+  /*
+   * The surface this phase cannot cover yet.
+   *
+   * The rule is meant to hold in three shapes -- a rendered page, a route
+   * handler and a Server Action -- and only one of the three looks like an
+   * endpoint. Two of them are above. `/api/recipes` does not exist until phase
+   * 18, and **it inherits the same assertion**: a draft is absent from it, for
+   * a stranger and for its author alike, exactly as it is absent from the
+   * collections tested here. Phase 18 builds the route; it does not get to
+   * decide whether that test is worth writing.
+   */
+});
