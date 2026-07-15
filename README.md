@@ -173,6 +173,72 @@ It also has to live in `src/`, beside `app/`, because that is the only directory
 in. A `proxy.ts` at the repository root builds clean, typechecks clean, lints clean and
 never runs. The build's route table prints `Proxy (Middleware)` when it has been found.
 
+## Authorization
+
+**A Server Action is a public HTTP endpoint.** Writing `"use server"` above a function
+publishes it: a POST, to any route on the site, identified by a stable id in a
+`Next-Action` header, with a body the sender writes. Nothing about calling it from a form
+suggests any of that, which is what makes this the most common real mistake in an App
+Router codebase.
+
+The project demonstrates it rather than asserting it. `tests/e2e/action-boundary.spec.ts`
+watches the request the editor sends when an author saves, and then sends it again by hand.
+What that measured, against a production build:
+
+| Sent again                                              | Result                             |
+| ------------------------------------------------------- | ---------------------------------- |
+| with the author's own cookies                           | writes                             |
+| posted at `/` or `/recipes` instead of the editor's URL | writes                             |
+| with `Origin` or `Next-Router-State-Tree` removed       | writes                             |
+| with no cookies at all, at `/`                          | refused by the action              |
+| with no cookies at all, at the editor's URL             | **307 to `/signin`, by the proxy** |
+
+The last two rows are the same request. Aimed at the studio it is redirected, and a client
+that followed redirects would record that as a refusal. Aimed one path to the left it
+reaches the action untouched, because `src/proxy.ts` matches `/studio/:path*` and the action
+id resolves on every route. **A proxy is an optimistic redirect for humans, not a security
+boundary** — the shape of CVE-2025-29927, whose patch is in this version and is not the
+lesson.
+
+### Where the check actually lives
+
+`src/server/session.ts`, which is the one seam every mutation already passes through, and
+one line in each action:
+
+```ts
+await requireRecipeAuthor(id); // not requireUser()
+```
+
+Authentication says somebody is signed in. It says nothing about whose recipe the `id` in
+the form names — and that id travels in a plain hidden input, in the open, because it is
+attacker-controlled either way and hiding it would be a decoration rather than a defence.
+
+Both editing actions shipped without the check on purpose, so the hole could be watched
+instead of described. A request captured from one author's editor and sent again with the
+other's cookies answered `{"status":"saved"}` and left his text in her draft.
+`tests/e2e/authorization.spec.ts` is that replay, and removing either guard fails it again.
+
+Nothing about the interface was wrong, and that is the part worth keeping. The editor page
+reads through `findAuthoredRecipe`, scoped by author, so no form the application renders can
+be made to carry somebody else's id. "Unreachable through the interface" was true — and the
+replayed request never went near the interface.
+
+The refusal collapses _absent_, _not a uuid_ and _somebody else's_ into one answer, so a
+stranger cannot use the difference to find out which recipe ids are real.
+
+### Two rules, not one
+
+Publication and ownership are separate, enforced in separate places, and conflating them is
+how one of them ends up unenforced:
+
+- **Ownership** decides who may edit. It is checked in the action, and in the studio's
+  queries, which are scoped by author in the `where` rather than filtered afterwards.
+- **Publication** decides what is public. `/recipes/<slug>` asks only whether a recipe is
+  published, so a draft is 404 there to its own author as readily as to a stranger.
+
+A detail page that rendered a draft "because it is yours" would be one scoping mistake away
+from rendering it for everybody, while looking like a page that works.
+
 ## Scripts
 
 | Script                 | What it does                               |
