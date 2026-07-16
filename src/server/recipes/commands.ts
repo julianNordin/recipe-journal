@@ -1,3 +1,4 @@
+import { publish, unpublish, type PublishableRecipe, type PublishProblem } from "@/domain/publish";
 import type { RecipeInput } from "@/domain/recipe-input";
 import type { IngredientInput, StepInput } from "@/domain/recipe-lists";
 import type { PrismaClient } from "@/generated/prisma/client";
@@ -116,5 +117,106 @@ export async function replaceRecipeLists(
     if (steps.length > 0) {
       await tx.recipeStep.createMany({ data: steps.map((step) => ({ ...step, recipeId })) });
     }
+  });
+}
+
+/**
+ * What a publish attempt answers.
+ *
+ * Narrower than the domain's `PublishOutcome`, deliberately. That type carries
+ * the resulting `publishedAt`, computed from the recipe as it was read -- and
+ * the write below does not necessarily use it, because "set once" is decided
+ * by the database rather than by that read. Handing a caller a date that might
+ * not be the stored one is the kind of nearly-right value that is believed for
+ * a long time.
+ */
+export type PublishResult = { ok: true } | { ok: false; problems: PublishProblem[] };
+
+/** The fields the publish rules need, and the two counts they cannot see without asking. */
+async function publishableRecipe(db: PrismaClient, id: string): Promise<PublishableRecipe> {
+  const recipe = await db.recipe.findUniqueOrThrow({
+    where: { id },
+    select: {
+      status: true,
+      title: true,
+      summary: true,
+      body: true,
+      publishedAt: true,
+      _count: { select: { ingredients: true, steps: true } },
+    },
+  });
+
+  return {
+    status: recipe.status,
+    title: recipe.title,
+    summary: recipe.summary,
+    body: recipe.body,
+    publishedAt: recipe.publishedAt,
+    ingredientCount: recipe._count.ingredients,
+    stepCount: recipe._count.steps,
+  };
+}
+
+/**
+ * Publish a recipe, if the rules in `src/domain/publish.ts` allow it.
+ *
+ * `findUniqueOrThrow` because the action has already been through
+ * `requireRecipeAuthor(id)`, which established that this recipe exists and is
+ * the caller's. A null here would mean it was deleted in between, and raising
+ * is the right answer to that.
+ *
+ * **Two statements, and their order is not a style choice.** The date is
+ * written first, conditionally, and only then does the status move:
+ *
+ *   1. `updateMany` where `publishedAt IS NULL` -- so "set once and never
+ *      moved" is a condition the database evaluates, not a value computed from
+ *      a read that may already be stale. Two publishes racing cannot shift the
+ *      date between them.
+ *   2. `update` the status.
+ *
+ * Reversing them fails. `ck_recipes_published_has_date` requires a published recipe to
+ * carry a date, CHECK constraints are evaluated per statement, and setting the
+ * status first leaves exactly the state it forbids. Measured -- swapping the
+ * two raises the constraint violation on the first publish of any draft.
+ */
+export async function publishRecipe(
+  db: PrismaClient,
+  params: { id: string; now: Date },
+): Promise<PublishResult> {
+  const outcome = publish(await publishableRecipe(db, params.id), params.now);
+  if (!outcome.ok) return { ok: false, problems: outcome.problems };
+
+  await db.$transaction([
+    db.recipe.updateMany({
+      where: { id: params.id, publishedAt: null },
+      data: { publishedAt: params.now },
+    }),
+    db.recipe.update({
+      where: { id: params.id },
+      data: { status: "PUBLISHED" },
+      select: { id: true },
+    }),
+  ]);
+
+  return { ok: true };
+}
+
+/**
+ * Return a recipe to draft, keeping the date it was first published on.
+ *
+ * The read looks wasteful -- `status: "DRAFT"` is the only column that changes
+ * -- and it is there on purpose. `unpublish` is where the rule that the date
+ * survives is written down, and routing the write through it means changing
+ * that function changes what the application does. A command that simply did
+ * not mention the column would keep the date by accident, and the domain
+ * module would be decoration.
+ */
+export async function unpublishRecipe(db: PrismaClient, params: { id: string }): Promise<void> {
+  const recipe = await publishableRecipe(db, params.id);
+
+  await db.recipe.update({
+    where: { id: params.id },
+    data: unpublish(recipe),
+    select: { id: true },
   });
 }
