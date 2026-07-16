@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { cache } from "react";
 
 import { Badge, Container } from "@/components/ui/Surfaces";
@@ -9,7 +9,11 @@ import { renderMarkdown, toPlainText } from "@/domain/markdown";
 import { readingTime } from "@/domain/reading-time";
 import type { Difficulty } from "@/generated/prisma/client";
 import { db } from "@/server/db";
-import { findPublishedRecipeBySlug, listPublishedRecipeSlugs } from "@/server/recipes/queries";
+import {
+  findCurrentSlugFor,
+  findPublishedRecipeBySlug,
+  listPublishedRecipeSlugs,
+} from "@/server/recipes/queries";
 
 import styles from "./page.module.css";
 
@@ -99,7 +103,25 @@ export default async function RecipePage(props: PageProps<"/recipes/[slug]">) {
   const { slug } = await props.params;
   const recipe = await getRecipe(slug);
 
-  if (recipe === null) notFound();
+  if (recipe === null) {
+    /*
+     * Not found under this name -- but the name may be one this recipe used to
+     * have, because `recipe_slugs` keeps every address a recipe has ever held.
+     *
+     * **308, not 302.** A rename is permanent: the old URL is never coming
+     * back, and a permanent redirect is what tells a browser, a crawler and
+     * whoever pasted the link somewhere that the address has genuinely moved.
+     * A temporary one leaves every one of them asking again forever.
+     *
+     * This runs before anything is rendered, so it is a redirect rather than a
+     * page containing one -- and only after the live lookup has missed, so the
+     * common case costs nothing.
+     */
+    const current = await findCurrentSlugFor(db, slug);
+    if (current !== null) permanentRedirect(`/recipes/${current}`);
+
+    notFound();
+  }
 
   const totalMinutes = recipe.prepMinutes + recipe.cookMinutes;
   const reading = readingTime(recipe.body);

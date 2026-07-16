@@ -426,3 +426,43 @@ export async function findRecipeAuthorId(db: PrismaClient, id: string): Promise<
   const recipe = await db.recipe.findUnique({ where: { id }, select: { authorId: true } });
   return recipe?.authorId ?? null;
 }
+
+/**
+ * The address a superseded slug should lead to, if it should lead anywhere.
+ *
+ * `recipe_slugs` keeps every slug a recipe has ever held, so a URL that worked
+ * before a rename still finds a row -- it just is not the live one. This turns
+ * that row into the slug that is, and the detail page turns *that* into a
+ * permanent redirect.
+ *
+ * **Published recipes only, and that is the interesting half.** Redirecting to
+ * a page that then answers 404 is worse than answering 404 here: it costs the
+ * reader a round trip and it tells a stranger that a draft with that former
+ * name exists, which is precisely what the draft rules spend their time not
+ * saying. So an old slug of an unpublished recipe is treated exactly like a
+ * slug that never existed.
+ *
+ * Returns null for the live slug too. A redirect from a page to itself is a
+ * loop, and the caller reaches this only after the live lookup has missed --
+ * but relying on the caller's order for that would be a trap for whoever calls
+ * it second.
+ */
+export async function findCurrentSlugFor(db: PrismaClient, slug: string): Promise<string | null> {
+  const row = await db.recipeSlug.findUnique({
+    where: { slug },
+    select: {
+      isCurrent: true,
+      recipe: {
+        select: {
+          status: true,
+          slugs: { where: { isCurrent: true }, select: { slug: true } },
+        },
+      },
+    },
+  });
+
+  if (row === null || row.isCurrent) return null;
+  if (row.recipe.status !== "PUBLISHED") return null;
+
+  return row.recipe.slugs[0]?.slug ?? null;
+}

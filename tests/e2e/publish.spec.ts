@@ -1,10 +1,12 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+import { slugify } from "@/domain/slug";
 
 import { signIn } from "./support/authors";
-import { newDraft, publishableDraft, publishPanel } from "./support/studio";
+import { fieldsForm, newDraft, publishableDraft, publishPanel } from "./support/studio";
 
 /**
- * Publishing, from the studio.
+ * Publishing and renaming, from the studio.
  *
  * The rules are unit-tested and the two statements that carry them out are
  * covered against real Postgres. What only a browser shows is the part in
@@ -127,5 +129,103 @@ test.describe("publishing a recipe", () => {
       page.getByRole("region", { name: "Published" }).getByRole("link", { name: title }),
     ).toBeVisible();
     await expect(page.getByRole("region", { name: "Drafts" }).getByText(title)).toBeHidden();
+  });
+});
+
+test.describe("renaming a published recipe", () => {
+  /** Fill the title and save, without reloading the page around it. */
+  async function rename(page: Page, to: string) {
+    await page.getByLabel("Title").fill(to);
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(fieldsForm(page).getByRole("status")).toHaveText("Saved.");
+  }
+
+  test("moves its address and leaves a permanent redirect behind", async ({ page, request }) => {
+    await signIn(page);
+    const { title, editUrl } = await publishableDraft(page, "Renamed");
+    published.push(editUrl);
+
+    await page.getByRole("button", { name: "Publish" }).click();
+    await expect(publishPanel(page).getByText("Published", { exact: true })).toBeVisible();
+
+    /*
+     * Renamed twice, with no reload in between, and the assertion is about the
+     * *middle* address.
+     *
+     * The panel is client state, so after the first rename it still shows the
+     * first address and never renders a link to the second -- which means Next
+     * never prefetches it, and the request below is the first anything has
+     * asked for that URL. That matters: `/recipes/[slug]` is statically
+     * rendered, so an address the studio has already linked has been rendered
+     * and cached, and answers from the cache whatever the database now says.
+     * The test underneath this one pins that down; it is phase 16's to fix,
+     * and hiding from it here would delete the evidence.
+     */
+    const second = `${title} two`;
+    const third = `${title} three`;
+    await rename(page, second);
+    await rename(page, third);
+
+    /*
+     * Not followed. A redirect and a page are different answers, and a client
+     * that merges them cannot tell "the old address moved" from "the old
+     * address still works", which is the whole assertion.
+     *
+     * 308 rather than 302: a rename is permanent, and a temporary redirect
+     * leaves every browser and crawler asking again forever.
+     */
+    const moved = await request.get(`/recipes/${slugify(second)}`, { maxRedirects: 0 });
+
+    expect(moved.status()).toBe(308);
+    expect(moved.headers()["location"]).toContain(slugify(third));
+
+    const followed = await request.get(`/recipes/${slugify(third)}`);
+    expect(followed.status()).toBe(200);
+    expect(await followed.text()).toContain(third);
+
+    // And the studio agrees, once it is reloaded and reads the database again.
+    await page.goto(editUrl);
+    await expect(
+      publishPanel(page).getByRole("link", { name: "View the public page" }),
+    ).toHaveAttribute("href", `/recipes/${slugify(third)}`);
+  });
+
+  test("an address somebody has already read goes on serving the old page", async ({
+    page,
+    request,
+  }) => {
+    await signIn(page);
+    const { title, editUrl } = await publishableDraft(page, "Stale");
+    published.push(editUrl);
+
+    await page.getByRole("button", { name: "Publish" }).click();
+    await expect(publishPanel(page).getByText("Published", { exact: true })).toBeVisible();
+
+    // A reader visits. `/recipes/[slug]` is statically rendered, so this
+    // response is now in the route cache.
+    const first = await request.get(`/recipes/${slugify(title)}`);
+    expect(first.status()).toBe(200);
+
+    await rename(page, `${title} revised`);
+
+    const again = await request.get(`/recipes/${slugify(title)}`, { maxRedirects: 0 });
+
+    /*
+     * **200, not 308, and this test exists to say so out loud.**
+     *
+     * The redirect is correct and the database is correct; the response never
+     * reaches either, because the route was rendered once and nothing has told
+     * Next that anything changed. This is the same bug as `/` not showing a
+     * newly published recipe, in its sharpest form -- an address that has
+     * demonstrably moved, still answering as though it had not.
+     *
+     * **Phase 16 turns this assertion around**, with `revalidatePath` on the
+     * old address from the rename. It is written down as an assertion rather
+     * than a comment so that the fix has something to flip, and so that nobody
+     * reads the test above as evidence that renaming is safe for a page anyone
+     * has already opened.
+     */
+    expect(again.status()).toBe(200);
+    expect(await again.text()).toContain(title);
   });
 });

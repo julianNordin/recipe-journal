@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { publishRecipe, updateRecipe } from "@/server/recipes/commands";
+import { publishRecipe, unpublishRecipe, updateRecipe } from "@/server/recipes/commands";
+import { findCurrentSlugFor } from "@/server/recipes/queries";
 import { moveCurrentSlug } from "@/server/recipes/slugs";
 
 import { cleanDatabasePerTest } from "./setup/database";
@@ -205,5 +206,57 @@ describe("two renames at once", () => {
       { slug: "alpha-loaf", current: true },
       { slug: "rye-loaf", current: false },
     ]);
+  });
+});
+
+describe("findCurrentSlugFor", () => {
+  it("points a superseded address at the live one", async () => {
+    const recipe = await published(db(), "Rye loaf", "rye-loaf");
+    await updateRecipe(db(), { id: recipe.id, input: inputFor("Caraway loaf") });
+
+    expect(await findCurrentSlugFor(db(), "rye-loaf")).toBe("caraway-loaf");
+  });
+
+  it("points every superseded address at the newest one, not the next one", async () => {
+    const recipe = await published(db(), "Rye loaf", "rye-loaf");
+    await updateRecipe(db(), { id: recipe.id, input: inputFor("Caraway loaf") });
+    await updateRecipe(db(), { id: recipe.id, input: inputFor("Seeded caraway loaf") });
+
+    // No chain of redirects. `is_current` is a property of the row rather than
+    // a pointer to the next one, so two renames cost one hop and not two.
+    expect(await findCurrentSlugFor(db(), "rye-loaf")).toBe("seeded-caraway-loaf");
+    expect(await findCurrentSlugFor(db(), "caraway-loaf")).toBe("seeded-caraway-loaf");
+  });
+
+  it("says nothing about the live address", async () => {
+    const recipe = await published(db(), "Rye loaf", "rye-loaf");
+    await updateRecipe(db(), { id: recipe.id, input: inputFor("Caraway loaf") });
+
+    // A redirect from a page to itself is a loop. The caller only asks after
+    // the live lookup has missed, but relying on that ordering would be a trap
+    // for whoever calls this second.
+    expect(await findCurrentSlugFor(db(), "caraway-loaf")).toBeNull();
+  });
+
+  it("says nothing about a slug that never existed", async () => {
+    await published(db(), "Rye loaf", "rye-loaf");
+
+    expect(await findCurrentSlugFor(db(), "no-such-recipe-anywhere")).toBeNull();
+  });
+
+  it("says nothing about a recipe that is not published", async () => {
+    const recipe = await published(db(), "Rye loaf", "rye-loaf");
+    await updateRecipe(db(), { id: recipe.id, input: inputFor("Caraway loaf") });
+    await unpublishRecipe(db(), { id: recipe.id });
+
+    /*
+     * **The privacy half, and the reason this is not simply "look up the live
+     * slug".** Redirecting here would cost the reader a round trip to a 404
+     * and would tell a stranger that a recipe formerly called `rye-loaf`
+     * exists -- which is exactly what every other draft rule spends its time
+     * not saying. An old address of an unpublished recipe is treated like one
+     * that never existed.
+     */
+    expect(await findCurrentSlugFor(db(), "rye-loaf")).toBeNull();
   });
 });
