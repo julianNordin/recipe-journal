@@ -34,7 +34,7 @@ Under construction. The roadmap below is ticked as each phase lands.
 - [x] 12 — Studio: dashboard and the create/edit actions
 - [x] 13 — The ingredient and step editor
 - [x] 14 — Authorization at the Server Action boundary
-- [ ] 15 — The publish workflow and slug history
+- [x] 15 — The publish workflow and slug history
 - [ ] 16 — Caching, revalidation and streaming
 - [ ] 17 — Comments and moderation
 - [ ] 18 — Search, filters, paging and the N+1
