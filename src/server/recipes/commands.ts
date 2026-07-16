@@ -3,7 +3,7 @@ import type { RecipeInput } from "@/domain/recipe-input";
 import type { IngredientInput, StepInput } from "@/domain/recipe-lists";
 import type { PrismaClient } from "@/generated/prisma/client";
 
-import { nextAvailableSlug } from "./slugs";
+import { moveCurrentSlug, nextAvailableSlug, type SlugMove } from "./slugs";
 
 /**
  * The writes. Queries live next door in `queries.ts`; both take their client
@@ -50,13 +50,15 @@ export async function createRecipe(
 }
 
 /**
- * Overwrite a recipe's own fields.
+ * Overwrite a recipe's own fields, and move its address if the title moved.
  *
- * **The slug is not among them.** Renaming a recipe is Phase 15's, and it is a
- * larger question than it looks: the old URL has to keep resolving, so a
- * rename flips one slug row and inserts another inside a transaction, and
- * `/recipes/<old>` answers with a permanent redirect. Quietly repointing the
- * slug here would break every existing link with nothing behind it.
+ * **One transaction, because a title and its slug are one fact.** A rename
+ * that half-happened would leave a recipe answering at an address that no
+ * longer describes it, or -- worse -- leave the old address pointing at a row
+ * whose `is_current` says it is not the live one. Both are silent.
+ *
+ * `moveCurrentSlug` decides whether anything needs to move at all, so an edit
+ * that does not touch the title costs one extra read and writes nothing.
  *
  * The whole input is written, nulls included, so that emptying a field in the
  * form actually clears it. A partial update built from "the fields that have
@@ -65,11 +67,15 @@ export async function createRecipe(
 export async function updateRecipe(
   db: PrismaClient,
   params: { id: string; input: RecipeInput },
-): Promise<void> {
-  await db.recipe.update({
-    where: { id: params.id },
-    data: params.input,
-    select: { id: true },
+): Promise<SlugMove> {
+  return db.$transaction(async (tx) => {
+    await tx.recipe.update({
+      where: { id: params.id },
+      data: params.input,
+      select: { id: true },
+    });
+
+    return moveCurrentSlug(tx, { recipeId: params.id, title: params.input.title });
   });
 }
 

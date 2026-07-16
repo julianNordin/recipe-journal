@@ -194,20 +194,30 @@ describe("updateRecipe", () => {
     expect((await db().recipe.findUniqueOrThrow({ where: { id } })).summary).toBeNull();
   });
 
-  it("does not move the URL when the title changes", async () => {
+  it("moves the URL when the title changes", async () => {
     const author = await makeUser(db());
-    const { id, slug } = await createRecipe(db(), { authorId: author.id, input: input() });
-
-    await updateRecipe(db(), { id, input: input({ title: "A completely different name" }) });
+    const { id } = await createRecipe(db(), { authorId: author.id, input: input() });
 
     /*
-     * Renaming is Phase 15's, and it is a bigger question than it looks: the
-     * old URL has to keep resolving, so a rename flips one slug row and
-     * inserts another inside a transaction. Silently repointing the slug here
-     * would break every link to the recipe with no redirect behind it.
+     * This test asserted the opposite until phase 15, and the comment under it
+     * said why: renaming was deferred because the old URL has to keep
+     * resolving, and repointing a slug with nothing behind the old address
+     * breaks every link to the recipe. Both halves exist now.
+     *
+     * A draft, so the old row is replaced rather than kept -- what happens to
+     * the history, and why `publishedAt` decides it, is the subject of
+     * `slug-history.test.ts` next door. What belongs here is only that
+     * `updateRecipe` is the thing that moves it.
      */
+    const move = await updateRecipe(db(), {
+      id,
+      input: input({ title: "A completely different name" }),
+    });
+
+    expect(move).toEqual({ slug: "a-completely-different-name", moved: true });
+
     const slugs = await db().recipeSlug.findMany({ where: { recipeId: id } });
-    expect(slugs.map((s) => s.slug)).toEqual([slug]);
+    expect(slugs.map((s) => s.slug)).toEqual(["a-completely-different-name"]);
   });
 
   it("does not publish anything", async () => {
