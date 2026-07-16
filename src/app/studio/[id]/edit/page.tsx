@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { PublishPanel } from "@/components/studio/PublishPanel";
 import { RecipeForm } from "@/components/studio/RecipeForm";
 import { RecipeListsEditor } from "@/components/studio/RecipeListsEditor";
-import { Badge, Card, Container } from "@/components/ui/Surfaces";
+import { Card, Container } from "@/components/ui/Surfaces";
 import { signInPath } from "@/domain/safe-redirect";
 import { db } from "@/server/db";
 import { findAuthoredRecipe } from "@/server/recipes/queries";
@@ -43,18 +43,20 @@ export default async function EditRecipePage(props: PageProps<"/studio/[id]/edit
       <header className={styles.header}>
         <div>
           <h1 className={styles.title}>Edit recipe</h1>
-          <p className={styles.who}>
-            <Badge tone={recipe.status === "PUBLISHED" ? "success" : "neutral"}>
-              {recipe.status === "PUBLISHED" ? "Published" : "Draft"}
-            </Badge>{" "}
-            {recipe.status === "PUBLISHED" && recipe.slug !== null ? (
-              <Link href={`/recipes/${recipe.slug}`}>View the public page</Link>
-            ) : (
-              "Not public yet."
-            )}
-          </p>
         </div>
       </header>
+
+      {/*
+       * The publish control comes first, because it is the question an author
+       * opens this page to answer. It is also the only piece of the editor
+       * whose state the page cannot hold: nothing is revalidated on publish,
+       * so the panel keeps the server's answer itself.
+       */}
+      <div className={styles.section}>
+        <Card>
+          <PublishPanel recipeId={recipe.id} status={recipe.status} slug={recipe.slug} />
+        </Card>
+      </div>
 
       <div className={styles.section}>
         <Card>

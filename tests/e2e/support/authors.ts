@@ -61,25 +61,3 @@ export async function signedInAs(browser: Browser, author: AuthorKey): Promise<S
     await context.close();
   }
 }
-
-/**
- * A draft belonging to whoever this page is signed in as, and its editor URL.
- *
- * Every test that writes gets its own recipe. The suite runs fully parallel
- * and the seeded fixtures are read by other specs, so editing those would make
- * unrelated tests flap for reasons that have nothing to do with what they
- * assert.
- */
-export async function newDraft(
-  page: Page,
-  label: string,
-): Promise<{ title: string; editUrl: string }> {
-  const title = `${label} ${String(Date.now())}${String(Math.random()).slice(2, 8)}`;
-
-  await page.goto("/studio/new");
-  await page.getByLabel("Title").fill(title);
-  await page.getByRole("button", { name: "Create draft" }).click();
-  await expect(page).toHaveURL(/\/studio\/[0-9a-f-]+\/edit$/);
-
-  return { title, editUrl: page.url() };
-}

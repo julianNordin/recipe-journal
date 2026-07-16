@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { newDraft, signIn, signedInAs, type SignedInState } from "./support/authors";
+import { signIn, signedInAs, type SignedInState } from "./support/authors";
 import {
   captureAction,
   replayAction,
@@ -8,6 +8,7 @@ import {
   withField,
   type CapturedAction,
 } from "./support/server-action";
+import { newDraft, publishableDraft } from "./support/studio";
 
 /**
  * Whether the caller may write to *this* recipe.
@@ -60,6 +61,10 @@ const saveTheLists = async (page: Page) => {
   await page.getByLabel("Step 1", { exact: true }).fill("Ada wrote this step");
   await page.getByRole("button", { name: "Save ingredients and method" }).click();
 };
+
+/** True when `setRecipePublishedAction` answered that it moved the recipe. */
+const reportsAChange = (result: { status: number; body: string }): boolean =>
+  result.status === 200 && result.body.includes('"status":"changed"');
 
 /** What was actually stored, read back through the page that renders it. */
 async function stored(page: Page, editUrl: string, field: "summary" | "step"): Promise<string> {
@@ -144,6 +149,49 @@ test.describe("a recipe can only be changed by its author", () => {
     }
   });
 
+  test("and cannot take another author's recipe off the site", async ({ page, playwright }) => {
+    // A publishable draft, published by its author, with that request kept.
+    await signIn(page, "ada");
+    const { editUrl } = await publishableDraft(page, "Publish replay");
+
+    const captured = await captureAction(page, async () => {
+      await page.getByRole("button", { name: "Publish" }).click();
+    });
+    await expect(page.getByRole("button", { name: "Unpublish" })).toBeVisible();
+
+    /*
+     * **The promise Phase 14 made: every new mutating action gets a replay.**
+     *
+     * `setRecipePublishedAction` is a third endpoint, published the day it was
+     * written, and the direction it moves is an ordinary form field -- so the
+     * captured publish is also an unpublish, with one word changed. Nothing
+     * about the guard is new; what is new is that the guard was written at the
+     * same time as the action rather than two phases later.
+     */
+    const asUnpublish = withField(captured.body, "intent", "unpublish");
+
+    expect(
+      reportsAChange(await replayAction(playwright, captured, { as: linus, body: asUnpublish })),
+    ).toBe(false);
+
+    await page.goto(editUrl);
+    await expect(page.getByRole("button", { name: "Unpublish" })).toBeVisible();
+
+    // The control: the same request, from the author, does take it down. Three
+    // assertions that nothing happened are worth nothing without it.
+    expect(
+      reportsAChange(
+        await replayAction(playwright, captured, {
+          as: await page.context().storageState(),
+          body: asUnpublish,
+        }),
+      ),
+    ).toBe(true);
+
+    await page.goto(editUrl);
+    await expect(page.getByRole("button", { name: "Publish" })).toBeVisible();
+  });
+
   test("while the author herself is refused nothing", async ({ page, playwright }) => {
     const { editUrl, captured } = await adasDraft(page, "Still allowed", saveTheFields);
 
@@ -212,17 +260,32 @@ test.describe("a draft is not published, and that is a different rule", () => {
   });
 
   test("it is in no public collection either", async ({ request }) => {
-    for (const path of ["/", "/recipes", "/tags/bread"]) {
+    /*
+     * The tag page carries the strong form of this, and it is the only one of
+     * the three that can.
+     *
+     * `bread` is on the draft and on the seeded sourdough and on nothing else,
+     * so one of them must be present and the other must not, whatever else the
+     * suite has published while this ran. That pair is the assertion: without
+     * the second half, a tag page that had simply broken would pass.
+     */
+    const tagged = await (await request.get("/tags/bread")).text();
+
+    expect(tagged, "the tag page leaked the draft").not.toContain(DRAFT.title);
+    expect(tagged, "the tag page is not showing anything").toContain(PUBLISHED.title);
+
+    /*
+     * The site-wide collections are paginated and the publish suite adds to
+     * them, so "the sourdough is on page one" is not a stable control here --
+     * it was, until publishing existed, and it failed the first time these
+     * suites ran together. What is still stable is that a card rendered at
+     * all, which is what `min` is standing in for: every card prints a time.
+     */
+    for (const path of ["/", "/recipes"]) {
       const html = await (await request.get(path)).text();
 
-      /*
-       * The control on every one of these, and it is doing real work on the
-       * last: the draft carries the `bread` tag and so does the published
-       * sourdough. Without the second assertion, a tag page that had simply
-       * broken would pass.
-       */
       expect(html, `${path} leaked the draft`).not.toContain(DRAFT.title);
-      expect(html, `${path} is not showing anything`).toContain(PUBLISHED.title);
+      expect(html, `${path} rendered no recipes`).toContain(" min");
     }
   });
 

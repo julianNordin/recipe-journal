@@ -41,10 +41,18 @@ test.describe("the dashboard", () => {
   test("offers a published recipe a link to its public page", async ({ page }) => {
     await signIn(page);
 
+    /*
+     * The seeded recipe by name, not `.first()` in the Published list.
+     *
+     * The publish suite puts recipes of its own on Ada's dashboard, so "the
+     * first one" is whatever ran most recently -- which made this test assert
+     * a URL belonging to a recipe called `Publishable 1788…`. Addressing the
+     * fixture by name is what the test meant all along.
+     */
     await page
-      .getByRole("region", { name: "Published" })
+      .getByRole("listitem")
+      .filter({ has: page.getByRole("link", { name: "No-knead sourdough" }) })
       .getByRole("link", { name: "View" })
-      .first()
       .click();
 
     await expect(page).toHaveURL("/recipes/no-knead-sourdough");

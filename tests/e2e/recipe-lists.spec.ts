@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
-import { newDraft, signIn } from "./support/authors";
+import { signIn } from "./support/authors";
+import { newDraft } from "./support/studio";
 
 /**
  * The ingredient and step editor, in a browser.

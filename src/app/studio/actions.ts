@@ -2,10 +2,17 @@
 
 import { redirect } from "next/navigation";
 
+import type { PublishProblem } from "@/domain/publish";
 import { parseRecipeInput, type RecipeFieldErrors } from "@/domain/recipe-input";
 import { parseRecipeListsJson, type RecipeListsErrors } from "@/domain/recipe-lists";
 import { db } from "@/server/db";
-import { createRecipe, replaceRecipeLists, updateRecipe } from "@/server/recipes/commands";
+import {
+  createRecipe,
+  publishRecipe,
+  replaceRecipeLists,
+  unpublishRecipe,
+  updateRecipe,
+} from "@/server/recipes/commands";
 import { requireRecipeAuthor, requireUser } from "@/server/session";
 
 /**
@@ -181,4 +188,65 @@ export async function saveRecipeListsAction(
 
   // No revalidation here either -- see the note in `updateRecipeAction`.
   return { status: "saved" };
+}
+
+/** What the publish panel carries back. */
+export type PublishFormState =
+  | { status: "idle" }
+  | { status: "changed"; published: boolean }
+  | { status: "blocked"; problems: PublishProblem[] };
+
+/**
+ * Publish a recipe, or take it back down.
+ *
+ * **One action for both directions, and it is the panel that decides it.**
+ * Publishing and unpublishing are two commands, but they are one question --
+ * "is this public?" -- and the panel has to hold one answer to it. Two
+ * `useActionState` hooks would each hold half, and the component would need a
+ * tiebreaker to decide which of them last spoke: a state machine, written
+ * badly, to solve a problem created by having two hooks.
+ *
+ * The direction therefore arrives as an ordinary field and is validated like
+ * one. `intent` is not a secret and not trusted -- neither is the id beside
+ * it -- and `requireRecipeAuthor` runs before either is read for anything.
+ *
+ * **`new Date()` lives here.** The rules in `src/domain/publish.ts` take
+ * "now" as an argument so they can be tested without freezing a clock, which
+ * means somebody has to supply it, and the boundary is the right place: it is
+ * the only layer that is allowed to know what time it is.
+ */
+export async function setRecipePublishedAction(
+  _previous: PublishFormState,
+  formData: FormData,
+): Promise<PublishFormState> {
+  const id = formData.get("id");
+  if (typeof id !== "string" || id === "") {
+    throw new Error("setRecipePublishedAction called without a recipe id");
+  }
+
+  await requireRecipeAuthor(id);
+
+  const intent = formData.get("intent");
+  if (intent !== "publish" && intent !== "unpublish") {
+    throw new Error("setRecipePublishedAction called without a valid intent");
+  }
+
+  if (intent === "unpublish") {
+    await unpublishRecipe(db, { id });
+    return { status: "changed", published: false };
+  }
+
+  const result = await publishRecipe(db, { id, now: new Date() });
+  if (!result.ok) return { status: "blocked", problems: result.problems };
+
+  /*
+   * Nothing is revalidated here either, and this is the one where it shows.
+   *
+   * A recipe published now does not appear on `/` or `/recipes` until the next
+   * build, because both were rendered once at build time. That is not a bug
+   * being tolerated -- it is the bug Phase 16 opens by demonstrating, and it
+   * has to be real to be worth demonstrating. The studio's own pages are
+   * dynamic and answer correctly on the next request.
+   */
+  return { status: "changed", published: true };
 }
