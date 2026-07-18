@@ -1,0 +1,23 @@
+.more {
+  margin-block-start: var(--space-8);
+  padding-block-start: var(--space-7);
+  border-block-start: 1px solid var(--color-border);
+}
+
+.heading {
+  margin-block-end: var(--space-5);
+}
+
+/*
+ * `auto-fit` with a minimum, so the row reflows on its own. The section holds
+ * at most three cards and often one, and a fixed three-column grid would leave
+ * two empty cells in the common case.
+ */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--space-5);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}

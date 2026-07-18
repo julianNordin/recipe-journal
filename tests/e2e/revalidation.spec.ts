@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 
 import { slugify } from "@/domain/slug";
 
@@ -30,6 +30,27 @@ import { fieldsForm, publishableDraft, publishPanel } from "./support/studio";
  * one is a call that does nothing while looking like insurance.
  */
 
+/**
+ * The home page, polled rather than read once.
+ *
+ * The suite runs fully parallel and several of these tests publish. A render
+ * of `/` that another worker started *before* this test's write can finish and
+ * store its result *after* the invalidation, putting pre-write content back
+ * into a freshly-marked entry -- which is true of any cache and not something
+ * the application can prevent. It flaked exactly once in two full runs before
+ * this was written.
+ *
+ * What the action actually promises is that the entry is invalidated, so the
+ * next render is correct. Polling is that promise, spelled out. It does not
+ * soften the test: with revalidation removed the page never changes at all,
+ * and the poll runs out.
+ */
+const homePage = (request: APIRequestContext) =>
+  expect.poll(async () => (await request.get("/")).text(), {
+    timeout: 8000,
+    intervals: [200, 400, 800],
+  });
+
 const published: string[] = [];
 
 test.afterEach(async ({ page }) => {
@@ -59,7 +80,7 @@ test.describe("what a mutation invalidates", () => {
 
     // No restart, no rebuild. The home page shows the latest three recipes and
     // was rendered once at build; this is the whole demonstration.
-    expect(await (await request.get("/")).text()).toContain(title);
+    await homePage(request).toContain(title);
   });
 
   test("an edit to a published recipe reaches its public page", async ({ page, request }) => {
@@ -67,21 +88,35 @@ test.describe("what a mutation invalidates", () => {
     const { title, editUrl } = await publishableDraft(page, "Edited");
     published.push(editUrl);
 
+    /*
+     * A summary nothing else uses. The default one comes from a shared helper,
+     * and the detail page now suggests other recipes by the same cook -- so a
+     * recipe another test published in parallel appears on this page carrying
+     * the same words, and `not.toContain` matches the neighbour instead of the
+     * stale copy. It failed exactly that way the first time these ran together.
+     */
+    const before = `Written before the edit, by ${title}`;
+    const after = `Rewritten after somebody read it, by ${title}`;
+
+    await page.getByLabel("Summary").fill(before);
+    await page.getByRole("button", { name: "Save changes" }).click();
+    await expect(fieldsForm(page).getByRole("status")).toHaveText("Saved.");
+
     await page.getByRole("button", { name: "Publish" }).click();
     await expect(publishPanel(page).getByText("Published", { exact: true })).toBeVisible();
 
     // Somebody reads it. The response is now in the route cache, which is what
     // makes the assertion at the end of this test mean anything.
     const address = `/recipes/${slugify(title)}`;
-    expect(await (await request.get(address)).text()).toContain("Complete enough to publish.");
+    expect(await (await request.get(address)).text()).toContain(before);
 
-    await page.getByLabel("Summary").fill("Rewritten after somebody read it.");
+    await page.getByLabel("Summary").fill(after);
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(fieldsForm(page).getByRole("status")).toHaveText("Saved.");
 
-    const after = await (await request.get(address)).text();
-    expect(after).toContain("Rewritten after somebody read it.");
-    expect(after).not.toContain("Complete enough to publish.");
+    const served = await (await request.get(address)).text();
+    expect(served).toContain(after);
+    expect(served).not.toContain(before);
   });
 
   test("a renamed recipe's old address redirects even after it has been read", async ({
@@ -122,7 +157,7 @@ test.describe("what a mutation invalidates", () => {
 
     await page.getByRole("button", { name: "Publish" }).click();
     await expect(publishPanel(page).getByText("Published", { exact: true })).toBeVisible();
-    expect(await (await request.get("/")).text()).toContain(title);
+    await homePage(request).toContain(title);
 
     await page.getByRole("button", { name: "Unpublish" }).click();
     await expect(publishPanel(page).getByText("Draft", { exact: true })).toBeVisible();
@@ -130,6 +165,6 @@ test.describe("what a mutation invalidates", () => {
     // The control on the first test, and the half that is easy to forget: an
     // invalidation that only ran on the way up would leave a withdrawn recipe
     // advertised on the front page indefinitely.
-    expect(await (await request.get("/")).text()).not.toContain(title);
+    await homePage(request).not.toContain(title);
   });
 });

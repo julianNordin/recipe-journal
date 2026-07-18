@@ -34,6 +34,7 @@ const AT = {
   ada: new Date("2026-06-22T09:14:00.000Z"),
   linus: new Date("2026-06-23T18:02:00.000Z"),
   sourdough: new Date("2026-06-24T07:40:00.000Z"),
+  crispbread: new Date("2026-06-28T15:05:00.000Z"),
   soup: new Date("2026-07-02T16:25:00.000Z"),
   draft: new Date("2026-07-06T11:10:00.000Z"),
 } as const;
@@ -126,6 +127,45 @@ export async function seedDatabase(db: PrismaClient): Promise<SeedCounts> {
       "Fold every thirty minutes for three hours.",
       "Shape, then refrigerate overnight.",
       "Bake at 250C covered for twenty minutes, then uncovered for twenty-five.",
+    ],
+  });
+
+  /*
+   * Linus's second published recipe, and both halves of that are deliberate.
+   *
+   * **Second**, because the detail page suggests other recipes by the same
+   * cook inside the only Suspense boundary in the application -- and a seed
+   * where every author has exactly one published recipe makes that section
+   * render nothing, so the one thing phase 16 built to stream would never be
+   * exercised by a test.
+   *
+   * **Linus's**, because the end-to-end suite signs in as Ada and publishes
+   * recipes of its own. Those carry today's date, so they sort ahead of
+   * anything seeded and crowd a "latest three" list. The fixture for a test
+   * that depends on ordering belongs to the author the suite never writes as.
+   */
+  await seedRecipe(db, {
+    slug: "rye-crispbread",
+    authorId: linus.id,
+    at: AT.crispbread,
+    status: "PUBLISHED",
+    title: "Rye crispbread",
+    summary: "Rolled thin, docked all over, and baked until it snaps.",
+    body: "Roll it thinner than feels sensible. It should be brittle, not chewy.",
+    servings: 12,
+    prepMinutes: 25,
+    cookMinutes: 12,
+    difficulty: "EASY",
+    tags: ["bread", "vegetarian"],
+    ingredients: [
+      { quantity: "250", unit: "g", item: "wholemeal rye flour" },
+      { quantity: "150", unit: "g", item: "water", note: "warm" },
+      { quantity: "5", unit: "g", item: "fine salt" },
+    ],
+    steps: [
+      "Mix to a stiff dough and rest for twenty minutes.",
+      "Roll out as thinly as the dough allows, then dock it all over.",
+      "Bake at 200C until dry and snapping, about twelve minutes.",
     ],
   });
 

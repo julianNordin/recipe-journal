@@ -35,7 +35,7 @@ describe("the development seed", () => {
   it("produces the fixture the rest of the suite assumes", async () => {
     const counts = await seedDatabase(db());
 
-    expect(counts).toEqual({ users: 2, recipes: 3, published: 2, tags: 4 });
+    expect(counts).toEqual({ users: 2, recipes: 4, published: 3, tags: 4 });
   });
 
   it("is idempotent: running it twice changes nothing", async () => {

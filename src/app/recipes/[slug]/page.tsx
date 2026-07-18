@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound, permanentRedirect } from "next/navigation";
-import { cache } from "react";
+import { cache, Suspense } from "react";
 
+import { MoreFromAuthor } from "@/components/recipes/MoreFromAuthor";
+import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { Badge, Container } from "@/components/ui/Surfaces";
 import { formatLongDay } from "@/domain/format-date";
 import { renderMarkdown, toPlainText } from "@/domain/markdown";
@@ -258,6 +260,32 @@ export default async function RecipePage(props: PageProps<"/recipes/[slug]">) {
           </section>
         </div>
       </article>
+
+      {/*
+       * **The only Suspense boundary in the application, and it is here rather
+       * than around the page for a reason.**
+       *
+       * Everything above this line is in the first flush: the heading, the
+       * facts, the body, the ingredients and the method. `notFound()` has
+       * already run, so a request for a recipe that is not published never
+       * opens a boundary at all -- which is what keeps it a real 404 rather
+       * than a 200 that streams an error.
+       *
+       * What is inside is a second query for other recipes by the same cook,
+       * and it is the one thing on this page a reader can do without. That is
+       * the test for whether something belongs behind a boundary. Phase 08
+       * had a root `loading.tsx`, which is a boundary around every page, and
+       * with scripting off it left every page a permanent skeleton -- the
+       * recipe present in the HTML and invisible on the screen. Losing a
+       * suggestion is not the same as losing the recipe.
+       */}
+      <Suspense fallback={<LoadingSkeleton label="Loading more from this cook" />}>
+        <MoreFromAuthor
+          authorId={recipe.author.id}
+          authorName={recipe.author.name}
+          excludeRecipeId={recipe.id}
+        />
+      </Suspense>
     </Container>
   );
 }

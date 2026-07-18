@@ -1,5 +1,3 @@
-import { Container } from "@/components/ui/Surfaces";
-
 import styles from "./LoadingSkeleton.module.css";
 
 /**
@@ -27,17 +25,18 @@ import styles from "./LoadingSkeleton.module.css";
  *
  * Skeleton blocks rather than a spinner: they reserve the space the content
  * will occupy, so nothing jumps when it arrives.
+ *
+ * No `Container` of its own. It is placed inside whatever section it stands
+ * in for, and a fallback that brought its own page layout could only ever be
+ * used at page level -- which is exactly the shape that caused the trouble.
  */
-export function LoadingSkeleton() {
+export function LoadingSkeleton({ label = "Loading" }: { label?: string }) {
   return (
-    <Container>
-      <div className={styles.wrap} role="status" aria-live="polite">
-        <span className="visually-hidden">Loading</span>
-        <div className={styles.title} />
-        <div className={styles.line} />
-        <div className={styles.line} />
-        <div className={`${styles.line} ${styles.short}`} />
-      </div>
-    </Container>
+    <div className={styles.wrap} role="status" aria-live="polite">
+      <span className="visually-hidden">{label}</span>
+      <div className={styles.title} />
+      <div className={styles.line} />
+      <div className={`${styles.line} ${styles.short}`} />
+    </div>
   );
 }

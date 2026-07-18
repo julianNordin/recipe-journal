@@ -16,6 +16,16 @@ import { expect, test } from "@playwright/test";
 const RECIPE = "/recipes/no-knead-sourdough";
 
 /**
+ * Linus's, and used only by the streaming test.
+ *
+ * He has two published recipes and the suite never signs in as him, so the
+ * "more from this cook" list under one of them is stable. Ada's would not be:
+ * the suite publishes recipes as her, they carry today's date, and they sort
+ * ahead of anything the seed wrote.
+ */
+const RECIPE_BY_LINUS = "/recipes/yellow-split-pea-soup";
+
+/**
  * React marks text-node boundaries in server-rendered HTML, so
  * `{n} published {word}` arrives as `1<!-- --> published <!-- -->recipe`.
  * A substring assertion against the raw bytes finds nothing and looks exactly
@@ -83,6 +93,46 @@ test.describe("server rendering", () => {
 
     // Ordered, and in the order the positions say -- not insertion order.
     await expect(method.getByRole("listitem").last()).toContainText("Bake at 250C");
+  });
+
+  test("the streamed suggestions arrive in the same response", async ({ request }) => {
+    /*
+     * The detail page has one Suspense boundary, around other recipes by the
+     * same cook. Streaming means the shell is flushed first and this arrives
+     * afterwards -- **in the same response**, which is what this asserts. A
+     * boundary that fetched on the client instead would leave nothing here.
+     */
+    const html = stripReactMarkers(await (await request.get(RECIPE_BY_LINUS)).text());
+
+    expect(html).toContain("More from Linus Berg");
+    expect(html).toContain("Rye crispbread");
+
+    // And not the recipe being read. A page that recommends itself is a bug
+    // that looks like a styling problem.
+    expect(html).not.toContain('href="/recipes/yellow-split-pea-soup"');
+  });
+
+  test("the recipe itself is not behind the boundary", async ({ page }) => {
+    /*
+     * **The assertion phase 08 paid for.** A root `loading.tsx` put every page
+     * behind a boundary, and with scripting off the fallback never gave way:
+     * Next streams the real content into a hidden container that inline
+     * scripts move into place, and there were no scripts. The recipe was in
+     * the HTML and invisible on the screen.
+     *
+     * So the rule this pins is not "no Suspense" -- it is that the boundary
+     * goes around what a reader can lose. Everything below is visible with
+     * scripting off, and the suggestions are the only thing that may not be.
+     */
+    await page.goto(RECIPE);
+
+    await expect(page.getByRole("heading", { level: 1, name: "No-knead sourdough" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Ingredients" })).toBeVisible();
+    await expect(page.getByRole("region", { name: "Method" })).toBeVisible();
+    await expect(page.getByText("gluten develops on its own given time")).toBeVisible();
+
+    // Nothing on this page is a loading state by the time it is readable.
+    await expect(page.getByRole("status", { name: /Loading/ })).toHaveCount(0);
   });
 
   test("a draft is not disclosed to a visitor", async ({ request }) => {

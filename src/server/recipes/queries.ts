@@ -40,6 +40,45 @@ export type RecipeListItem = {
   tags: { slug: string; name: string }[];
 };
 
+/**
+ * The columns a card needs, named once.
+ *
+ * Two queries feed `RecipeCard` -- the paged list and the author's other
+ * recipes -- and a card that silently lost its tags on one of them would look
+ * like a data problem rather than a `select` that had drifted.
+ */
+const RECIPE_CARD_SELECT = {
+  id: true,
+  title: true,
+  summary: true,
+  difficulty: true,
+  prepMinutes: true,
+  cookMinutes: true,
+  publishedAt: true,
+  author: { select: { name: true } },
+  slugs: { where: { isCurrent: true }, select: { slug: true } },
+  tags: { select: { tag: { select: { slug: true, name: true } } } },
+} satisfies Prisma.RecipeSelect;
+
+type CardRow = Prisma.RecipeGetPayload<{ select: typeof RECIPE_CARD_SELECT }>;
+
+/**
+ * Rows to cards, dropping any recipe that has no current slug.
+ *
+ * A recipe with no live slug has no URL, so a card for it would link nowhere.
+ * Dropping it is the honest rendering rather than a workaround: the partial
+ * unique index allows at most one current slug, it does not require one.
+ * `flatMap` rather than filter-then-map, so the narrowing survives into the
+ * returned type.
+ */
+function toCards(rows: CardRow[]): RecipeListItem[] {
+  return rows.flatMap(({ slugs, tags, ...recipe }) => {
+    const slug = slugs[0]?.slug;
+    if (slug === undefined) return [];
+    return [{ ...recipe, slug, tags: tags.map(({ tag }) => tag) }];
+  });
+}
+
 export type RecipePage = {
   items: RecipeListItem[];
   /** The size of the whole filtered set, not of this page. */
@@ -85,32 +124,14 @@ export async function listPublishedRecipes(
       skip: options.skip,
       take: options.take,
       select: {
-        id: true,
-        title: true,
-        summary: true,
-        difficulty: true,
-        prepMinutes: true,
-        cookMinutes: true,
-        publishedAt: true,
-        author: { select: { name: true } },
-        slugs: { where: { isCurrent: true }, select: { slug: true } },
-        tags: { select: { tag: { select: { slug: true, name: true } } } },
+        ...RECIPE_CARD_SELECT,
       },
     }),
     db.recipe.count({ where }),
   ]);
 
   return {
-    items: rows.flatMap(({ slugs, tags, ...recipe }) => {
-      const slug = slugs[0]?.slug;
-      // A recipe with no current slug has no URL, so a card for it would link
-      // nowhere. Dropping it is the honest rendering, not a workaround: the
-      // partial unique index allows at most one current slug, it does not
-      // require one. `flatMap` rather than a filter-then-map so the narrowing
-      // survives into the returned type.
-      if (slug === undefined) return [];
-      return [{ ...recipe, slug, tags: tags.map(({ tag }) => tag) }];
-    }),
+    items: toCards(rows),
     total,
   };
 }
@@ -488,4 +509,35 @@ export async function findCurrentSlug(db: PrismaClient, recipeId: string): Promi
   });
 
   return row?.slug ?? null;
+}
+
+/**
+ * Other published recipes by the same cook, newest first.
+ *
+ * The one query on the detail page that is not the recipe, which is what makes
+ * it the right thing to put behind a Suspense boundary: the page is complete
+ * without it. Phase 08 learned the other version of that lesson the expensive
+ * way -- a boundary around *everything* left the whole page a skeleton with
+ * scripting off (gotcha 54) -- so the rule this encodes is that a boundary
+ * goes around what a reader can do without, and nothing else.
+ *
+ * Excludes the recipe being read, or the page recommends itself.
+ */
+export async function listOtherRecipesByAuthor(
+  db: PrismaClient,
+  params: { authorId: string; excludeRecipeId: string; take: number },
+): Promise<RecipeListItem[]> {
+  const rows = await db.recipe.findMany({
+    where: {
+      status: "PUBLISHED",
+      authorId: params.authorId,
+      id: { not: params.excludeRecipeId },
+    },
+    // The same sort as the listing, tiebreaker included, for the same reason.
+    orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+    take: params.take,
+    select: RECIPE_CARD_SELECT,
+  });
+
+  return toCards(rows);
 }
