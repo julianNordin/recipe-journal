@@ -214,7 +214,11 @@ describe("updateRecipe", () => {
       input: input({ title: "A completely different name" }),
     });
 
-    expect(move).toEqual({ slug: "a-completely-different-name", moved: true });
+    expect(move).toEqual({
+      slug: "a-completely-different-name",
+      previous: "brown-butter-cardamom-buns",
+      moved: true,
+    });
 
     const slugs = await db().recipeSlug.findMany({ where: { recipeId: id } });
     expect(slugs.map((s) => s.slug)).toEqual(["a-completely-different-name"]);

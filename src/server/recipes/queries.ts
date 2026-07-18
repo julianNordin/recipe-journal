@@ -472,3 +472,20 @@ export async function findCurrentSlugFor(db: PrismaClient, slug: string): Promis
 
   return row.recipe.slugs[0]?.slug ?? null;
 }
+
+/**
+ * The address a recipe answers at right now, or null if it has none.
+ *
+ * For the actions that change a recipe without touching its title: they know
+ * an id and have to invalidate a path. `moveCurrentSlug` hands its own callers
+ * both addresses directly, so this is only for the ones that never asked it
+ * anything.
+ */
+export async function findCurrentSlug(db: PrismaClient, recipeId: string): Promise<string | null> {
+  const row = await db.recipeSlug.findFirst({
+    where: { recipeId, isCurrent: true },
+    select: { slug: true },
+  });
+
+  return row?.slug ?? null;
+}

@@ -63,8 +63,16 @@ export async function nextAvailableSlug(
   );
 }
 
-/** What a rename did, or did not do. */
-export type SlugMove = { slug: string; moved: boolean };
+/**
+ * What a rename did, or did not do.
+ *
+ * `previous` is the address the recipe held before this call, and it is here
+ * for one caller: the Server Action, which has to invalidate the cached
+ * response for **both** addresses. Invalidating only the new one leaves the
+ * old URL serving the recipe instead of redirecting to it -- correct database,
+ * correct redirect, wrong answer, and nothing anywhere reports a problem.
+ */
+export type SlugMove = { slug: string; previous: string | null; moved: boolean };
 
 /**
  * Point a recipe's live slug at its title, keeping the old address working.
@@ -103,7 +111,9 @@ export async function moveCurrentSlug(
   });
 
   const desired = await nextAvailableSlug(db, params.title, { exceptRecipeId: params.recipeId });
-  if (current?.slug === desired) return { slug: desired, moved: false };
+  const previous = current?.slug ?? null;
+
+  if (previous === desired) return { slug: desired, previous, moved: false };
 
   if (current !== null) {
     const recipe = await db.recipe.findUniqueOrThrow({
@@ -127,5 +137,5 @@ export async function moveCurrentSlug(
     create: { slug: desired, recipeId: params.recipeId, isCurrent: true },
   });
 
-  return { slug: desired, moved: true };
+  return { slug: desired, previous, moved: true };
 }

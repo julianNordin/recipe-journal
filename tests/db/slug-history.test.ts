@@ -70,7 +70,7 @@ describe("renaming a published recipe", () => {
       input: inputFor("Rye and caraway loaf"),
     });
 
-    expect(move).toEqual({ slug: "rye-and-caraway-loaf", moved: true });
+    expect(move).toEqual({ slug: "rye-and-caraway-loaf", previous: "rye-loaf", moved: true });
     expect(await slugsOf(db(), recipe.id)).toEqual([
       { slug: "rye-and-caraway-loaf", current: true },
       // Still there, and still owned by this recipe. Somebody has that URL.
@@ -89,7 +89,10 @@ describe("renaming a published recipe", () => {
      * back `rye-loaf-2`, and every save of an unedited form quietly changes the
      * recipe's address and adds a history row.
      */
-    expect(move).toEqual({ slug: "rye-loaf", moved: false });
+    // `previous` is the address it held before the call, so an unchanged
+    // title reports the same slug on both sides. The action invalidates both
+    // and the duplicate is dropped, which is why they may be equal.
+    expect(move).toEqual({ slug: "rye-loaf", previous: "rye-loaf", moved: false });
     expect(await slugsOf(db(), recipe.id)).toEqual([{ slug: "rye-loaf", current: true }]);
   });
 

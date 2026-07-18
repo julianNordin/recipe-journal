@@ -190,42 +190,11 @@ test.describe("renaming a published recipe", () => {
     ).toHaveAttribute("href", `/recipes/${slugify(third)}`);
   });
 
-  test("an address somebody has already read goes on serving the old page", async ({
-    page,
-    request,
-  }) => {
-    await signIn(page);
-    const { title, editUrl } = await publishableDraft(page, "Stale");
-    published.push(editUrl);
-
-    await page.getByRole("button", { name: "Publish" }).click();
-    await expect(publishPanel(page).getByText("Published", { exact: true })).toBeVisible();
-
-    // A reader visits. `/recipes/[slug]` is statically rendered, so this
-    // response is now in the route cache.
-    const first = await request.get(`/recipes/${slugify(title)}`);
-    expect(first.status()).toBe(200);
-
-    await rename(page, `${title} revised`);
-
-    const again = await request.get(`/recipes/${slugify(title)}`, { maxRedirects: 0 });
-
-    /*
-     * **200, not 308, and this test exists to say so out loud.**
-     *
-     * The redirect is correct and the database is correct; the response never
-     * reaches either, because the route was rendered once and nothing has told
-     * Next that anything changed. This is the same bug as `/` not showing a
-     * newly published recipe, in its sharpest form -- an address that has
-     * demonstrably moved, still answering as though it had not.
-     *
-     * **Phase 16 turns this assertion around**, with `revalidatePath` on the
-     * old address from the rename. It is written down as an assertion rather
-     * than a comment so that the fix has something to flip, and so that nobody
-     * reads the test above as evidence that renaming is safe for a page anyone
-     * has already opened.
-     */
-    expect(again.status()).toBe(200);
-    expect(await again.text()).toContain(title);
-  });
+  /*
+   * There was a second test here until phase 16, asserting that an address
+   * somebody had already read went on serving the old page after a rename --
+   * a **200** where a 308 belonged, written as an assertion so that phase had
+   * something to turn around rather than a comment to find. It lives in
+   * `revalidation.spec.ts` now, turned around.
+   */
 });

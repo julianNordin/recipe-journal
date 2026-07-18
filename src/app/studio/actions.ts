@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import type { PublishProblem } from "@/domain/publish";
@@ -13,6 +14,7 @@ import {
   unpublishRecipe,
   updateRecipe,
 } from "@/server/recipes/commands";
+import { findCurrentSlug } from "@/server/recipes/queries";
 import { requireRecipeAuthor, requireUser } from "@/server/session";
 
 /**
@@ -34,10 +36,50 @@ import { requireRecipeAuthor, requireUser } from "@/server/session";
  *   2. parse the body with the schema the form was built from
  *   3. call a command in `src/server/recipes/`, which does the writing and
  *      authorizes nothing
+ *   4. **say what that write made stale**, because nothing else will
  *
  * Authorization comes before parsing, so a caller with no claim to the recipe
  * is refused without this server doing any work on the rest of their input.
+ *
+ * Step 4 is phase 16's, and it is the correctness twin of step 1's security
+ * lesson: both are boundaries that do not look like boundaries. A route
+ * rendered once at build goes on answering with what it was built with, and a
+ * mutation that does not declare what it invalidated produces a site that is
+ * silently, plausibly wrong -- right database, right query, right page,
+ * stale response. See `revalidateRecipe` below for which routes that is and
+ * how the list was arrived at.
  */
+
+/**
+ * Invalidate every cached route a change to one recipe can make wrong.
+ *
+ * **The list is short because the build's route table says which routes are
+ * cached, and only those need anything.** `/` is `○ (Static)` -- rendered once,
+ * showing the latest three recipes -- and `/tags` is too, with a count beside
+ * each tag. `/recipes/<slug>` is `● (SSG)` for what existed at build and cached
+ * on first read for everything since. `/recipes` and `/tags/<slug>` are
+ * `ƒ (Dynamic)`: they read `searchParams`, they are rendered per request, and
+ * revalidating them would be a call that does nothing while looking like
+ * insurance.
+ *
+ * **Several slugs, because a rename has two addresses.** Invalidating only the
+ * new one leaves the old URL serving the recipe instead of redirecting to it --
+ * database right, redirect right, answer wrong, nothing reporting a problem.
+ * That is why `moveCurrentSlug` returns `previous` at all.
+ *
+ * `/tags` is invalidated on publish and unpublish because its counts move. It
+ * is the one line here with no end-to-end test: nothing in the application can
+ * yet put a tag on a recipe, so a recipe the suite creates never changes a
+ * count. **Phase 18 adds tag filtering and is where that becomes testable.**
+ */
+function revalidateRecipe(options: { slugs: (string | null)[]; tags?: boolean }): void {
+  revalidatePath("/");
+  if (options.tags === true) revalidatePath("/tags");
+
+  for (const slug of new Set(options.slugs.filter((slug) => slug !== null))) {
+    revalidatePath(`/recipes/${slug}`);
+  }
+}
 
 /**
  * What `useActionState` carries back into the form.
@@ -84,14 +126,10 @@ export async function createRecipeAction(
   const recipe = await createRecipe(db, { authorId: user.id, input: parsed.value });
 
   /*
-   * Nothing is revalidated here, deliberately.
-   *
-   * A new recipe is a draft, so no public page can be stale because of it --
-   * and the dashboard it lands next to is dynamic. The interesting case is the
-   * one this does *not* cover: editing a recipe that is already published,
-   * whose public page was rendered once at build. That staleness is real, it
-   * is what Phase 16 exists to show before fixing, and papering over it here
-   * would delete the demonstration.
+   * Nothing is revalidated here, and this is the one place that stayed true
+   * after phase 16: a new recipe is a draft, so no public page can be wrong
+   * because of it, and the dashboard it lands next to is dynamic. An
+   * invalidation here would be a call that does nothing.
    */
   redirect(`/studio/${recipe.id}/edit`);
 }
@@ -134,15 +172,12 @@ export async function updateRecipeAction(
   const parsed = parseRecipeInput(Object.fromEntries(formData));
   if (!parsed.ok) return { status: "invalid", errors: parsed.errors };
 
-  await updateRecipe(db, { id, input: parsed.value });
+  const move = await updateRecipe(db, { id, input: parsed.value });
 
-  /*
-   * Again, nothing is revalidated -- and here it genuinely matters. Editing a
-   * recipe that is already published leaves `/recipes/<slug>` serving the HTML
-   * it was built with, because that route is prerendered. The staleness is
-   * real and visible, and it is the bug Phase 16 opens by demonstrating rather
-   * than describing.
-   */
+  // Both addresses. A rename leaves a reader on the old one, and until it is
+  // invalidated that URL keeps serving the recipe rather than redirecting.
+  revalidateRecipe({ slugs: [move.slug, move.previous] });
+
   return { status: "saved" };
 }
 
@@ -186,7 +221,11 @@ export async function saveRecipeListsAction(
     steps: parsed.value.steps,
   });
 
-  // No revalidation here either -- see the note in `updateRecipeAction`.
+  // The ingredients and the method are most of what the public page *is*, so
+  // this is the change least likely to be noticed as stale and most likely to
+  // matter. The title did not move, so there is one address.
+  revalidateRecipe({ slugs: [await findCurrentSlug(db, id)] });
+
   return { status: "saved" };
 }
 
@@ -233,20 +272,20 @@ export async function setRecipePublishedAction(
 
   if (intent === "unpublish") {
     await unpublishRecipe(db, { id });
+
+    // Both directions. An invalidation that only ran on the way up would leave
+    // a withdrawn recipe advertised on the front page indefinitely.
+    revalidateRecipe({ slugs: [await findCurrentSlug(db, id)], tags: true });
+
     return { status: "changed", published: false };
   }
 
   const result = await publishRecipe(db, { id, now: new Date() });
   if (!result.ok) return { status: "blocked", problems: result.problems };
 
-  /*
-   * Nothing is revalidated here either, and this is the one where it shows.
-   *
-   * A recipe published now does not appear on `/` or `/recipes` until the next
-   * build, because both were rendered once at build time. That is not a bug
-   * being tolerated -- it is the bug Phase 16 opens by demonstrating, and it
-   * has to be real to be worth demonstrating. The studio's own pages are
-   * dynamic and answer correctly on the next request.
-   */
+  // The sharpest case: without this, a recipe published now is absent from the
+  // front page until somebody rebuilds, and the author has no way to tell.
+  revalidateRecipe({ slugs: [await findCurrentSlug(db, id)], tags: true });
+
   return { status: "changed", published: true };
 }
