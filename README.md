@@ -239,6 +239,59 @@ how one of them ends up unenforced:
 A detail page that rendered a draft "because it is yours" would be one scoping mistake away
 from rendering it for everybody, while looking like a page that works.
 
+## Caching and revalidation
+
+**The framework caches by default, and a mutation that does not say what it invalidated
+produces a site that is silently, plausibly wrong.** Right database, right query, right page,
+stale response — and nothing anywhere reporting a problem. It is the correctness twin of the
+authorization lesson above: both are boundaries that do not look like boundaries.
+
+Measured on a production build, before anything was fixed:
+
+| Route             | How it renders                                                    | A recipe published a second ago |
+| ----------------- | ----------------------------------------------------------------- | ------------------------------- |
+| `/`               | static, once at build                                             | **absent**                      |
+| `/tags`           | static, once at build                                             | counts **stale**                |
+| `/recipes/<slug>` | prerendered for what existed at build, cached on first read after | **stale once read**             |
+| `/recipes`        | dynamic — it reads `searchParams`                                 | correct already                 |
+
+That last row is why the fix is a named list of paths rather than a blanket. The build's route
+table says which routes are cached; revalidating a dynamic one is a call that does nothing while
+looking like insurance.
+
+So every mutating Server Action ends by declaring what it made stale, through one helper in
+`src/app/studio/actions.ts`. A rename invalidates **two** addresses — the one it moved to and the
+one it moved from — which is why `moveCurrentSlug` returns the previous slug at all. Without that
+second call the old URL keeps serving the recipe instead of redirecting to it.
+
+`tests/e2e/revalidation.spec.ts` was written first and every test in it failed. Removing the
+invalidation again fails all four; keeping it and dropping only the previous address fails exactly
+one, the rename.
+
+**Why not `revalidateTag`.** Tags attach to cache _entries_, and this application has no data
+cache to tag: queries go to Postgres through Prisma, not through `fetch`. Tagging would mean
+wrapping those queries in a second cache layer purely so there was something to name — solving a
+problem the app does not have, and adding one it currently does not. What is actually stale here
+is the full route cache, and `revalidatePath` is the thing that clears it.
+
+### Streaming
+
+There is exactly one `<Suspense>` boundary in the application, on the recipe page, around other
+recipes by the same cook. It is there because that section is the one thing on the page a reader
+can do without.
+
+An earlier version of this project had a root `loading.tsx`, which is a boundary around _every_
+page — and with scripting off the fallback never gave way. Next sends the fallback in the first
+flush and streams the real content into a hidden container that inline scripts move into place;
+with no scripts, nothing moved. The recipe was in the HTML and invisible on the screen, on a site
+whose whole claim is that the server renders the page.
+
+The rule that came out of it: **check what needs checking, call `notFound()` before opening a
+boundary, then wrap only what a reader can lose.** A request for an unpublished recipe never opens
+one at all, which is what keeps it a real 404 rather than a 200 that streams an error. The no-JS
+Playwright project asserts the heading, the ingredients and the method are all visible without
+scripting; the suggestions are the only thing that may not be.
+
 ## Scripts
 
 | Script                 | What it does                               |
