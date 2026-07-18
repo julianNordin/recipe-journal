@@ -15,10 +15,16 @@ import type { Difficulty, Prisma, PrismaClient, RecipeStatus } from "@/generated
  * supplies its container client.
  */
 
-/** Published recipes only. Drafts are never counted here. */
-export async function countPublishedRecipes(db: PrismaClient): Promise<number> {
-  return db.recipe.count({ where: { status: "PUBLISHED" } });
-}
+/*
+ * There is deliberately no `countPublishedRecipes` here.
+ *
+ * `listPublishedRecipes` builds one `where` and hands it to both the page
+ * query and the count, so its total can never describe a different filter than
+ * its items. A second, standalone count is a second place for that filter to
+ * be written -- and the day the two disagree, the pager says there is another
+ * page and the page is empty. It existed from phase 09 to phase 15 with no
+ * caller at all, which is how it survived being obviously the wrong shape.
+ */
 
 /** What a recipe card shows. Deliberately without the body. */
 export type RecipeListItem = {

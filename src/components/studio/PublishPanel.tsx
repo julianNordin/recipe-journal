@@ -5,7 +5,7 @@ import { useActionState } from "react";
 
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Surfaces";
-import { PUBLISH_PROBLEM_MESSAGES } from "@/domain/publish";
+import { isPubliclyVisible, PUBLISH_PROBLEM_MESSAGES } from "@/domain/publish";
 
 import styles from "./PublishPanel.module.css";
 
@@ -41,8 +41,10 @@ export function PublishPanel({
   );
 
   // The server's last word if there is one, and what the page was rendered
-  // with otherwise.
-  const published = state.status === "changed" ? state.published : status === "PUBLISHED";
+  // with otherwise. `isPubliclyVisible` rather than a comparison written out
+  // here: "public" is a rule, it lives in the domain module with the rest of
+  // them, and a second copy of it in a component is how the two drift.
+  const published = state.status === "changed" ? state.published : isPubliclyVisible({ status });
   const intent = published ? "unpublish" : "publish";
 
   return (

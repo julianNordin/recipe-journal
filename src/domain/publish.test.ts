@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  canPublish,
   isPubliclyVisible,
   publish,
   publishProblems,
@@ -28,7 +27,6 @@ function complete(overrides: Partial<PublishableRecipe> = {}): PublishableRecipe
 describe("publishProblems", () => {
   it("finds nothing wrong with a complete recipe", () => {
     expect(publishProblems(complete())).toEqual([]);
-    expect(canPublish(complete())).toBe(true);
   });
 
   it.each([
@@ -39,7 +37,6 @@ describe("publishProblems", () => {
     ["no-steps", { stepCount: 0 }],
   ] as const)("reports %s", (problem, overrides) => {
     expect(publishProblems(complete(overrides))).toContain(problem);
-    expect(canPublish(complete(overrides))).toBe(false);
   });
 
   it("treats whitespace as absent", () => {

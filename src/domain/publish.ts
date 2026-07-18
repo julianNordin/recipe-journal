@@ -52,10 +52,6 @@ export function publishProblems(recipe: PublishableRecipe): PublishProblem[] {
   return problems;
 }
 
-export function canPublish(recipe: PublishableRecipe): boolean {
-  return publishProblems(recipe).length === 0;
-}
-
 export type PublishOutcome =
   { ok: true; status: "PUBLISHED"; publishedAt: Date } | { ok: false; problems: PublishProblem[] };
 
