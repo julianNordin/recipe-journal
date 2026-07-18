@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { AUTHORS, signIn } from "./support/authors";
+import { AUTHORS, signedInAs, signIn } from "./support/authors";
 
 /**
  * The studio, in a browser.
@@ -161,6 +161,47 @@ test.describe("creating a recipe", () => {
     // A form that empties itself on an error is a form people stop using.
     await expect(page.getByLabel("Summary")).toHaveValue("Worth keeping.");
     await expect(page.getByLabel("Servings")).toHaveValue("9");
+  });
+
+  test("keeps it when the form posted natively, too", async ({ browser }) => {
+    /*
+     * **The same assertion with scripting off, and it is the one that was
+     * actually doing the work.**
+     *
+     * The test above passed for two phases on the strength of hydration
+     * winning a race: once React is in charge, the DOM keeps whatever was
+     * typed no matter what the server says, so the assertion held without
+     * anything implementing it. Every submission made before hydration -- and
+     * every one made with no JavaScript at all -- posted the form natively,
+     * and the server rendered a fresh one with empty defaults. The author got
+     * their error message and a blank form.
+     *
+     * It surfaced as a flake, at roughly one full run in five, which is
+     * exactly the frequency at which a real defect gets called one.
+     *
+     * The session is carried in rather than signed in, because the sign-in
+     * form is a client component and there is no scriptless way through it.
+     */
+    const context = await browser.newContext({
+      javaScriptEnabled: false,
+      storageState: await signedInAs(browser, "ada"),
+    });
+
+    try {
+      const page = await context.newPage();
+      await page.goto("/studio/new");
+
+      await page.getByLabel("Summary").fill("Worth keeping.");
+      await page.getByLabel("Servings").fill("9");
+      await page.getByRole("button", { name: "Create draft" }).click();
+      await page.waitForLoadState("load");
+
+      await expect(page.getByText("A recipe needs a title.")).toBeVisible();
+      await expect(page.getByLabel("Summary")).toHaveValue("Worth keeping.");
+      await expect(page.getByLabel("Servings")).toHaveValue("9");
+    } finally {
+      await context.close();
+    }
   });
 });
 

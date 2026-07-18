@@ -179,6 +179,16 @@ const recipeInputSchema = z.object({
  * knowing about, and a strict object would break the moment the form grew a
  * field.
  */
+/**
+ * The field names the form posts.
+ *
+ * Read off the schema rather than written out again, so a field added to one
+ * cannot go missing from the other. The one caller is the action, which hands
+ * what was submitted back to the form when it refuses it -- see
+ * `RecipeFormState`.
+ */
+export const RECIPE_FIELDS = Object.keys(recipeInputSchema.shape) as RecipeField[];
+
 export function parseRecipeInput(raw: unknown): RecipeInputResult {
   const result = recipeInputSchema.safeParse(raw);
   if (result.success) return { ok: true, value: result.data };

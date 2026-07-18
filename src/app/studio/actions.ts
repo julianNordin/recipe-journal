@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import type { PublishProblem } from "@/domain/publish";
-import { parseRecipeInput, type RecipeFieldErrors } from "@/domain/recipe-input";
+import { parseRecipeInput, RECIPE_FIELDS, type RecipeFieldErrors } from "@/domain/recipe-input";
 import { parseRecipeListsJson, type RecipeListsErrors } from "@/domain/recipe-lists";
 import { db } from "@/server/db";
 import {
@@ -89,7 +89,42 @@ function revalidateRecipe(options: { slugs: (string | null)[]; tags?: boolean })
  * whether an errors object was empty would eventually get it wrong.
  */
 export type RecipeFormState =
-  { status: "idle" } | { status: "saved" } | { status: "invalid"; errors: RecipeFieldErrors };
+  | { status: "idle" }
+  | { status: "saved" }
+  | {
+      status: "invalid";
+      errors: RecipeFieldErrors;
+      /**
+       * What was submitted, handed straight back.
+       *
+       * **Without this the form loses everything typed into it whenever the
+       * server refuses a submission and the browser posted natively** -- which
+       * is every submission made before React has hydrated, and every one made
+       * with scripting off. React keeps the DOM values on the hydrated path,
+       * which is why the gap was invisible: the studio test asserting this
+       * passed on the strength of hydration usually winning a race.
+       */
+      values: Record<string, string>;
+    };
+
+/**
+ * The submitted fields as strings, for handing back to a refused form.
+ *
+ * Only the names the schema knows. A `FormData` from a native post also
+ * carries React's own `$ACTION_ID_...` entries, and a form that echoed
+ * whatever arrived back into its inputs would be echoing the sender's choice
+ * of keys.
+ */
+function submittedValues(formData: FormData): Record<string, string> {
+  const values: Record<string, string> = {};
+
+  for (const field of RECIPE_FIELDS) {
+    const value = formData.get(field);
+    if (typeof value === "string") values[field] = value;
+  }
+
+  return values;
+}
 
 /*
  * No `const IDLE_FORM_STATE` here, and it is not a style choice: **a
@@ -121,7 +156,9 @@ export async function createRecipeAction(
   const user = await requireUser();
 
   const parsed = parseRecipeInput(Object.fromEntries(formData));
-  if (!parsed.ok) return { status: "invalid", errors: parsed.errors };
+  if (!parsed.ok) {
+    return { status: "invalid", errors: parsed.errors, values: submittedValues(formData) };
+  }
 
   const recipe = await createRecipe(db, { authorId: user.id, input: parsed.value });
 
@@ -170,7 +207,9 @@ export async function updateRecipeAction(
   await requireRecipeAuthor(id);
 
   const parsed = parseRecipeInput(Object.fromEntries(formData));
-  if (!parsed.ok) return { status: "invalid", errors: parsed.errors };
+  if (!parsed.ok) {
+    return { status: "invalid", errors: parsed.errors, values: submittedValues(formData) };
+  }
 
   const move = await updateRecipe(db, { id, input: parsed.value });
 

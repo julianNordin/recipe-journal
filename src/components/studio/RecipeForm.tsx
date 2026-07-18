@@ -28,8 +28,16 @@ import type { RecipeFormState } from "@/app/studio/actions";
  *
  * `useActionState` rather than `useState` and a fetch: the form posts to the
  * action, the action's answer comes back as `state`, and `pending` is managed
- * for us. It also degrades -- with JavaScript off the form posts natively and
- * the same action runs.
+ * for us. It also degrades -- with JavaScript off, and in the window before
+ * hydration, the form posts natively and the same action runs.
+ *
+ * **That degradation is why a refusal carries the submitted values back.** On
+ * the hydrated path the DOM keeps whatever was typed and nothing needs to be
+ * restored; on the native path the server renders a fresh form, and without
+ * the echo below the author gets their error message and an empty form. The
+ * test that was supposed to catch this passed for two phases because
+ * hydration usually won the race -- it failed roughly one run in five, which
+ * is exactly the frequency at which a real defect gets called a flake.
  */
 
 const DIFFICULTIES = [
@@ -57,9 +65,21 @@ export function RecipeForm({
   const [state, formAction, pending] = useActionState(action, { status: "idle" });
 
   const errors = state.status === "invalid" ? state.errors : {};
+  const submitted = state.status === "invalid" ? state.values : {};
 
   const text = (value: string | number | null | undefined): string =>
     value === null || value === undefined ? "" : String(value);
+
+  /**
+   * What this field should start with: what was just submitted if the server
+   * refused it, and the stored value otherwise.
+   *
+   * `defaultValue` rather than `value`, so these stay uncontrolled -- which is
+   * what lets the hydrated path keep what is being typed while a submission is
+   * in flight.
+   */
+  const initial = (name: keyof RecipeInput, stored?: string | number | null): string =>
+    submitted[name] ?? text(stored ?? defaults[name]);
 
   return (
     <form action={formAction} className={styles.form} noValidate>
@@ -92,7 +112,7 @@ export function RecipeForm({
       <Field
         label="Title"
         name="title"
-        defaultValue={text(defaults.title)}
+        defaultValue={initial("title")}
         error={errors.title}
         maxLength={RECIPE_LIMITS.title}
         required
@@ -102,7 +122,7 @@ export function RecipeForm({
       <Field
         label="Summary"
         name="summary"
-        defaultValue={text(defaults.summary)}
+        defaultValue={initial("summary")}
         error={errors.summary}
         maxLength={RECIPE_LIMITS.summary}
         hint="One sentence, shown on cards and in the feed. Needed before publishing."
@@ -112,7 +132,7 @@ export function RecipeForm({
       <TextAreaField
         label="Introduction"
         name="body"
-        defaultValue={text(defaults.body)}
+        defaultValue={initial("body")}
         error={errors.body}
         maxLength={RECIPE_LIMITS.body}
         hint="Markdown. Headings, emphasis, lists and links."
@@ -123,7 +143,7 @@ export function RecipeForm({
         label="Hero image URL"
         name="heroImageUrl"
         type="url"
-        defaultValue={text(defaults.heroImageUrl)}
+        defaultValue={initial("heroImageUrl")}
         error={errors.heroImageUrl}
         maxLength={RECIPE_LIMITS.heroImageUrl}
         // The allowlist, said out loud rather than discovered by being
@@ -139,7 +159,7 @@ export function RecipeForm({
           name="servings"
           type="number"
           inputMode="numeric"
-          defaultValue={text(defaults.servings ?? 4)}
+          defaultValue={initial("servings", defaults.servings ?? 4)}
           error={errors.servings}
           min={RECIPE_LIMITS.servings.min}
           max={RECIPE_LIMITS.servings.max}
@@ -152,7 +172,7 @@ export function RecipeForm({
           name="prepMinutes"
           type="number"
           inputMode="numeric"
-          defaultValue={text(defaults.prepMinutes ?? 10)}
+          defaultValue={initial("prepMinutes", defaults.prepMinutes ?? 10)}
           error={errors.prepMinutes}
           min={RECIPE_LIMITS.minutes.min}
           max={RECIPE_LIMITS.minutes.max}
@@ -165,7 +185,7 @@ export function RecipeForm({
           name="cookMinutes"
           type="number"
           inputMode="numeric"
-          defaultValue={text(defaults.cookMinutes ?? 20)}
+          defaultValue={initial("cookMinutes", defaults.cookMinutes ?? 20)}
           error={errors.cookMinutes}
           min={RECIPE_LIMITS.minutes.min}
           max={RECIPE_LIMITS.minutes.max}
@@ -176,7 +196,7 @@ export function RecipeForm({
         <SelectField
           label="Difficulty"
           name="difficulty"
-          defaultValue={text(defaults.difficulty ?? "MEDIUM")}
+          defaultValue={initial("difficulty", defaults.difficulty ?? "MEDIUM")}
           error={errors.difficulty}
           options={DIFFICULTIES}
         />
