@@ -1,0 +1,14 @@
+-- ---------------------------------------------------------------------------
+-- An index for the comment rate limit.
+--
+-- The check is "how many comments has this author posted since <time>", and it
+-- runs on every post. Without this it is a sequential scan over every comment
+-- on the site, which is exactly backwards: the cost of the brake grows with
+-- the traffic it exists to survive.
+--
+-- Declared in schema.prisma rather than written only here. A plain-column
+-- index is one of the few things Prisma's migrate diff *does* see as drift --
+-- unlike the partial index, the functional index, the deferrable constraints
+-- and the CHECKs, all of which are invisible to it and hand-written.
+-- ---------------------------------------------------------------------------
+CREATE INDEX "comments_author_id_created_at_idx" ON "comments"("author_id", "created_at");

@@ -234,5 +234,9 @@ model Comment {
   author User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
 
   @@index([recipeId, createdAt(sort: Desc)])
+  // For the rate limit: "how many has this person posted since <time>". It
+  // runs on every post, so it is worth an index rather than a sequential scan
+  // over every comment on the site.
+  @@index([authorId, createdAt])
   @@map("comments")
 }
