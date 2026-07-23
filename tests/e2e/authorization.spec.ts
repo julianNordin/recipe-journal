@@ -8,7 +8,7 @@ import {
   withField,
   type CapturedAction,
 } from "./support/server-action";
-import { newDraft, publishableDraft } from "./support/studio";
+import { newDraft, publishableDraft, publishPanel } from "./support/studio";
 
 /**
  * Whether the caller may write to *this* recipe.
@@ -300,4 +300,133 @@ test.describe("a draft is not published, and that is a different rule", () => {
    * collections tested here. Phase 18 builds the route; it does not get to
    * decide whether that test is worth writing.
    */
+});
+
+test.describe("a comment can only be removed by somebody entitled to", () => {
+  /**
+   * Ada, a published recipe of hers, and two comments on it.
+   *
+   * Two, because capturing the delete request means sending it -- so the first
+   * comment pays for the capture and the second is the one the replays are
+   * aimed at.
+   */
+  async function twoComments(page: Page) {
+    await signIn(page, "ada");
+    const { title, editUrl } = await publishableDraft(page, "Comment replay");
+
+    await page.getByRole("button", { name: "Publish" }).click();
+    await expect(publishPanel(page).getByRole("button", { name: "Unpublish" })).toBeVisible();
+
+    const address = `/recipes/${title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}`;
+    await page.goto(address);
+
+    for (const body of ["The first one, which pays for the capture.", "The second one."]) {
+      await page.getByLabel("Leave a comment").fill(body);
+      await page.getByRole("button", { name: "Post comment" }).click();
+      await expect(page.getByText(body)).toBeVisible();
+    }
+
+    return { address, editUrl };
+  }
+
+  test("another reader cannot delete one, however the request is sent", async ({
+    page,
+    browser,
+    playwright,
+  }) => {
+    const linus = await signedInAs(browser, "linus");
+    const { address, editUrl } = await twoComments(page);
+
+    // The second comment's id, read off the form the page drew for it.
+    const survivor = await page
+      .locator("form")
+      .filter({ has: page.getByRole("button", { name: "Delete" }) })
+      .last()
+      .locator("input[name='commentId']")
+      .inputValue();
+
+    // Capturing means sending: the first comment is really deleted here.
+    const captured = await captureAction(page, async () => {
+      await page.getByRole("button", { name: "Delete" }).first().click();
+    });
+    await expect(page.getByText("The first one, which pays for the capture.")).toBeHidden();
+
+    const atTheSurvivor = withField(captured.body, "commentId", survivor);
+
+    await replayAction(playwright, captured, { as: linus, body: atTheSurvivor });
+
+    /*
+     * Linus is signed in, and he is an author with recipes of his own. On
+     * somebody else's page that counts for nothing -- writing recipes is not a
+     * moderation role. The missing Delete button in `comments.spec.ts` is a
+     * courtesy; this is the check.
+     */
+    await page.goto(address);
+    await expect(page.getByText("The second one.")).toBeVisible();
+
+    // The control. Three assertions that nothing happened are worth nothing
+    // without one that something can.
+    await replayAction(playwright, captured, {
+      as: await page.context().storageState(),
+      body: atTheSurvivor,
+    });
+
+    await page.goto(address);
+    await expect(page.getByText("The second one.")).toBeHidden();
+
+    await page.goto(editUrl);
+    await publishPanel(page).getByRole("button", { name: "Unpublish" }).click();
+    await expect(publishPanel(page).getByRole("button", { name: "Publish" })).toBeVisible();
+  });
+
+  test("and a comment cannot be posted on a draft", async ({ page, playwright }) => {
+    await signIn(page, "ada");
+
+    // A draft of Ada's own, so this is not about whose recipe it is.
+    const { editUrl: draftUrl } = await newDraft(page, "Uncommentable");
+    const draftId = /\/studio\/([0-9a-f-]+)\/edit/.exec(draftUrl)?.[1] ?? "";
+    expect(draftId).not.toBe("");
+
+    /*
+     * A published recipe of this test's own, not the seeded one.
+     *
+     * The first version of this posted its comment on `no-knead-sourdough`,
+     * which every other spec reads. Repeats piled identical comments onto a
+     * shared fixture until the cleanup could no longer tell them apart -- and
+     * a test that writes to a fixture other tests assert on is a test that
+     * fails somewhere else.
+     */
+    const { title, editUrl } = await publishableDraft(page, "Commentable");
+    await page.getByRole("button", { name: "Publish" }).click();
+    await expect(publishPanel(page).getByRole("button", { name: "Unpublish" })).toBeVisible();
+
+    await page.goto(`/recipes/${title.toLowerCase().replaceAll(/[^a-z0-9]+/g, "-")}`);
+    const captured = await captureAction(page, async () => {
+      await page.getByLabel("Leave a comment").fill("Posted where a form exists.");
+      await page.getByRole("button", { name: "Post comment" }).click();
+    });
+    await expect(page.getByText("Posted where a form exists.")).toBeVisible();
+
+    /*
+     * The same request, aimed at a recipe that has no comment form because it
+     * has no page. **"There is no form" is not a check** -- the recipe id
+     * arrives in a body somebody wrote, and the command is what refuses it.
+     */
+    const result = await replayAction(playwright, captured, {
+      as: await page.context().storageState(),
+      body: withField(
+        withField(captured.body, "recipeId", draftId),
+        "body",
+        "Posted where no form exists.",
+      ),
+    });
+
+    expect(result.body).toContain("not-commentable");
+    expect(result.body).not.toContain('"status":"posted"');
+
+    // Back off the public site, taking its comment with it.
+    await page.goto(editUrl);
+    await publishPanel(page).getByRole("button", { name: "Unpublish" }).click();
+    await expect(publishPanel(page).getByRole("button", { name: "Publish" })).toBeVisible();
+  });
 });

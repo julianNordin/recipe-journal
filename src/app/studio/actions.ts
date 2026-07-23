@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import type { PublishProblem } from "@/domain/publish";
@@ -15,6 +14,7 @@ import {
   updateRecipe,
 } from "@/server/recipes/commands";
 import { findCurrentSlug } from "@/server/recipes/queries";
+import { revalidateRecipe } from "@/server/revalidate";
 import { requireRecipeAuthor, requireUser } from "@/server/session";
 
 /**
@@ -49,37 +49,6 @@ import { requireRecipeAuthor, requireUser } from "@/server/session";
  * stale response. See `revalidateRecipe` below for which routes that is and
  * how the list was arrived at.
  */
-
-/**
- * Invalidate every cached route a change to one recipe can make wrong.
- *
- * **The list is short because the build's route table says which routes are
- * cached, and only those need anything.** `/` is `○ (Static)` -- rendered once,
- * showing the latest three recipes -- and `/tags` is too, with a count beside
- * each tag. `/recipes/<slug>` is `● (SSG)` for what existed at build and cached
- * on first read for everything since. `/recipes` and `/tags/<slug>` are
- * `ƒ (Dynamic)`: they read `searchParams`, they are rendered per request, and
- * revalidating them would be a call that does nothing while looking like
- * insurance.
- *
- * **Several slugs, because a rename has two addresses.** Invalidating only the
- * new one leaves the old URL serving the recipe instead of redirecting to it --
- * database right, redirect right, answer wrong, nothing reporting a problem.
- * That is why `moveCurrentSlug` returns `previous` at all.
- *
- * `/tags` is invalidated on publish and unpublish because its counts move. It
- * is the one line here with no end-to-end test: nothing in the application can
- * yet put a tag on a recipe, so a recipe the suite creates never changes a
- * count. **Phase 18 adds tag filtering and is where that becomes testable.**
- */
-function revalidateRecipe(options: { slugs: (string | null)[]; tags?: boolean }): void {
-  revalidatePath("/");
-  if (options.tags === true) revalidatePath("/tags");
-
-  for (const slug of new Set(options.slugs.filter((slug) => slug !== null))) {
-    revalidatePath(`/recipes/${slug}`);
-  }
-}
 
 /**
  * What `useActionState` carries back into the form.

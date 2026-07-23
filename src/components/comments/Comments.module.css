@@ -1,0 +1,113 @@
+.comments {
+  margin-block-start: var(--space-8);
+  padding-block-start: var(--space-7);
+  border-block-start: 1px solid var(--color-border);
+  max-width: var(--width-prose);
+}
+
+.heading {
+  margin-block-end: var(--space-5);
+}
+
+.none {
+  color: var(--color-text-muted);
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  list-style: none;
+  margin: 0 0 var(--space-7);
+  padding: 0;
+}
+
+.comment {
+  padding: var(--space-4);
+  background: var(--color-surface-raised);
+  border-radius: var(--radius-md);
+}
+
+.byline {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.who {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+/*
+ * `pre-wrap`, because comment bodies are stored and rendered as plain text.
+ * Somebody's line breaks are part of what they wrote; nothing else about their
+ * text is interpreted.
+ */
+.body {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.deleteForm {
+  margin-block-start: var(--space-3);
+}
+
+.delete {
+  padding: 0;
+  font: inherit;
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+  background: none;
+  border: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.label {
+  font-weight: 600;
+}
+
+.textarea {
+  width: 100%;
+  padding: var(--space-3);
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  resize: vertical;
+}
+
+.textarea:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.signedOut {
+  color: var(--color-text-muted);
+}
+
+.problem {
+  margin: 0;
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+  background: var(--color-danger-subtle);
+  border-radius: var(--radius-md);
+}
+
+.posted {
+  margin: 0;
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  color: var(--color-success);
+  background: var(--color-success-subtle);
+  border-radius: var(--radius-md);
+}

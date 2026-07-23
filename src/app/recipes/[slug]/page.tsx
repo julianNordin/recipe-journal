@@ -3,6 +3,7 @@ import Image from "next/image";
 import { notFound, permanentRedirect } from "next/navigation";
 import { cache, Suspense } from "react";
 
+import { Comments } from "@/components/comments/Comments";
 import { MoreFromAuthor } from "@/components/recipes/MoreFromAuthor";
 import { LoadingSkeleton } from "@/components/ui/LoadingSkeleton";
 import { Badge, Container } from "@/components/ui/Surfaces";
@@ -279,6 +280,18 @@ export default async function RecipePage(props: PageProps<"/recipes/[slug]">) {
        * recipe present in the HTML and invisible on the screen. Losing a
        * suggestion is not the same as losing the recipe.
        */}
+      {/*
+       * Comments are in the first flush, not behind the boundary above.
+       *
+       * They are content somebody came to read, and the list is the same for
+       * every visitor -- so it belongs in the HTML the server sends, cached
+       * with the page and invalidated when a comment is posted. Only the
+       * controls are client-side, because only *they* depend on who is
+       * looking. Putting the whole section behind Suspense would hide real
+       * content from a reader without JavaScript to gain nothing.
+       */}
+      <Comments recipeId={recipe.id} recipeAuthorId={recipe.author.id} />
+
       <Suspense fallback={<LoadingSkeleton label="Loading more from this cook" />}>
         <MoreFromAuthor
           authorId={recipe.author.id}
