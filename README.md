@@ -36,7 +36,7 @@ Under construction. The roadmap below is ticked as each phase lands.
 - [x] 14 — Authorization at the Server Action boundary
 - [x] 15 — The publish workflow and slug history
 - [x] 16 — Caching, revalidation and streaming
-- [ ] 17 — Comments and moderation
+- [x] 17 — Comments and moderation
 - [ ] 18 — Search, filters, paging and the N+1
 - [ ] 19 — SEO, feeds and social images
 - [ ] 20 — Accessibility and the end-to-end journeys
