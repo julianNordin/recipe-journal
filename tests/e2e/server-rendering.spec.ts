@@ -135,6 +135,23 @@ test.describe("server rendering", () => {
     await expect(page.getByRole("status", { name: /Loading/ })).toHaveCount(0);
   });
 
+  test("the search box works with no JavaScript at all", async ({ page }) => {
+    /*
+     * **The box is a GET form and the typeahead is an enhancement**, which is
+     * the whole reason searching is a URL rather than client state. With
+     * scripting off there are no suggestions and the feature still works: the
+     * form submits, the server filters, and the result can be bookmarked.
+     */
+    await page.goto("/recipes");
+
+    await page.getByLabel("Search recipes").fill("sourdough");
+    await page.getByRole("button", { name: "Search" }).click();
+
+    await expect(page).toHaveURL(/q=sourdough/);
+    await expect(page.getByRole("link", { name: "No-knead sourdough" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Yellow split pea soup" })).toHaveCount(0);
+  });
+
   test("a draft is not disclosed to a visitor", async ({ request }) => {
     // Phase 14 proves this rule on all three surfaces and with a real second
     // author. Here it is only the page, and only for a signed-out visitor,
