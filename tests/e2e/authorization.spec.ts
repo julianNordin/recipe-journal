@@ -290,15 +290,14 @@ test.describe("a draft is not published, and that is a different rule", () => {
   });
 
   /*
-   * The surface this phase cannot cover yet.
+   * The third surface, discharged.
    *
-   * The rule is meant to hold in three shapes -- a rendered page, a route
-   * handler and a Server Action -- and only one of the three looks like an
-   * endpoint. Two of them are above. `/api/recipes` does not exist until phase
-   * 18, and **it inherits the same assertion**: a draft is absent from it, for
-   * a stranger and for its author alike, exactly as it is absent from the
-   * collections tested here. Phase 18 builds the route; it does not get to
-   * decide whether that test is worth writing.
+   * The rule holds in three shapes -- a rendered page, a Server Action and a
+   * route handler -- and only the last looks like an endpoint. Two of them are
+   * above; `/api/recipes` did not exist when they were written, and the
+   * obligation was recorded here rather than left to be rediscovered.
+   * `tests/e2e/api-recipes.spec.ts` now carries it: a draft is absent from
+   * that endpoint for a stranger, for another author, and for its own author.
    */
 });
 
