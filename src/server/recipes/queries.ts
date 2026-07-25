@@ -39,6 +39,7 @@ export type RecipeListItem = {
   publishedAt: Date | null;
   author: { name: string | null };
   tags: { slug: string; name: string }[];
+  commentCount: number;
 };
 
 /**
@@ -59,6 +60,22 @@ const RECIPE_CARD_SELECT = {
   author: { select: { name: true } },
   slugs: { where: { isCurrent: true }, select: { slug: true } },
   tags: { select: { tag: { select: { slug: true, name: true } } } },
+  /*
+   * **The N+1, and its fix, in one line.**
+   *
+   * A card shows how many comments a recipe has. Asking per recipe -- a
+   * `comment.count` for each row -- is the classic shape: measured at **7
+   * operations for five recipes and 12 for ten**, which is 2 + N and grows
+   * with the page size forever.
+   *
+   * `_count` makes it part of the same request. Prisma issues one aggregate
+   * for the whole page instead of one lookup per row, so the cost stops
+   * depending on how many recipes came back. `tests/db/query-count.test.ts`
+   * asserts that five and ten cost the *same*, never that they cost a
+   * particular number -- a test pinned to "7 queries" passes for the wrong
+   * reason the day somebody adds a column.
+   */
+  _count: { select: { comments: true } },
 } satisfies Prisma.RecipeSelect;
 
 type CardRow = Prisma.RecipeGetPayload<{ select: typeof RECIPE_CARD_SELECT }>;
@@ -73,10 +90,10 @@ type CardRow = Prisma.RecipeGetPayload<{ select: typeof RECIPE_CARD_SELECT }>;
  * returned type.
  */
 function toCards(rows: CardRow[]): RecipeListItem[] {
-  return rows.flatMap(({ slugs, tags, ...recipe }) => {
+  return rows.flatMap(({ slugs, tags, _count, ...recipe }) => {
     const slug = slugs[0]?.slug;
     if (slug === undefined) return [];
-    return [{ ...recipe, slug, tags: tags.map(({ tag }) => tag) }];
+    return [{ ...recipe, slug, tags: tags.map(({ tag }) => tag), commentCount: _count.comments }];
   });
 }
 

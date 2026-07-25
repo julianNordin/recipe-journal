@@ -42,6 +42,16 @@ export function RecipeCard({ recipe }: { recipe: RecipeListItem }) {
             <time dateTime={recipe.publishedAt.toISOString()}>{formatDay(recipe.publishedAt)}</time>
           </>
         ) : null}
+        {/*
+         * Silent at zero. "0 comments" on every card of a young site is noise
+         * that says nothing except that nobody has been here.
+         */}
+        {recipe.commentCount > 0 ? (
+          <>
+            {" · "}
+            {recipe.commentCount} {recipe.commentCount === 1 ? "comment" : "comments"}
+          </>
+        ) : null}
       </p>
 
       {recipe.tags.length > 0 ? (
