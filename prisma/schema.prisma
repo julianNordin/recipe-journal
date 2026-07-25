@@ -145,6 +145,8 @@ model Recipe {
   comments    Comment[]
 
   @@index([status, publishedAt(sort: Desc)])
+  @@index([title(ops: raw("gin_trgm_ops"))], type: Gin)
+  @@index([summary(ops: raw("gin_trgm_ops"))], type: Gin)
   @@index([authorId, status])
   @@map("recipes")
 }

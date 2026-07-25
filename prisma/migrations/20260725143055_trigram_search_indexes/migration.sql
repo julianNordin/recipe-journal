@@ -1,0 +1,22 @@
+-- ---------------------------------------------------------------------------
+-- Trigram indexes for search.
+--
+-- Search is `ILIKE '%term%'` over a recipe's title and summary. A leading
+-- wildcard defeats a B-tree completely -- there is no prefix to seek on -- so
+-- without these every search is a sequential scan over every published recipe.
+--
+-- `gin_trgm_ops` indexes the three-character substrings of each value, which
+-- is exactly what a contains-match needs, and it is why `pg_trgm` was created
+-- back in the phase that wrote the other hand-written SQL.
+--
+-- **Declared in schema.prisma rather than written only here.** A plain-column
+-- index is one of the few things `migrate diff` does see as drift, unlike the
+-- partial index, the functional index, the deferrable constraints and the
+-- CHECKs, which are invisible to it and live only in migration files. The
+-- operator class travels through `ops: raw("gin_trgm_ops")`.
+--
+-- Two indexes rather than one over both columns: `summary` is nullable and the
+-- two are searched independently with an OR, so a composite would not be used.
+-- ---------------------------------------------------------------------------
+CREATE INDEX "recipes_title_idx" ON "recipes" USING GIN ("title" gin_trgm_ops);
+CREATE INDEX "recipes_summary_idx" ON "recipes" USING GIN ("summary" gin_trgm_ops);

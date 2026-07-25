@@ -1,3 +1,4 @@
+import { DEFAULT_RECIPE_SORT, type RecipeSort } from "@/domain/recipe-sort";
 import type { Difficulty, Prisma, PrismaClient, RecipeStatus } from "@/generated/prisma/client";
 
 /**
@@ -79,6 +80,30 @@ function toCards(rows: CardRow[]): RecipeListItem[] {
   });
 }
 
+/**
+ * A sort name turned into an ordering, exhaustively.
+ *
+ * **A `Record` over the union rather than a switch with a default**, so adding
+ * a name to `RECIPE_SORTS` and forgetting it here is a type error rather than
+ * a silent fall-through to "newest". That is the half of the whitelist the
+ * compiler can check; `parseRecipeSort` is the half that faces the query
+ * string.
+ *
+ * Every one of them ends in `id`, and the tiebreaker is load-bearing under
+ * offset paging -- see `listPublishedRecipes`. `id` is a uuid v7, so it is
+ * time-ordered and the tiebreak agrees with a date sort rather than fighting
+ * it. A title sort ties on it too, which is arbitrary and *stable*, and stable
+ * is the property paging needs.
+ */
+const ORDERINGS: Record<RecipeSort, Prisma.RecipeOrderByWithRelationInput[]> = {
+  newest: [{ publishedAt: "desc" }, { id: "desc" }],
+  oldest: [{ publishedAt: "asc" }, { id: "asc" }],
+  title: [{ title: "asc" }, { id: "asc" }],
+  quickest: [{ cookMinutes: "asc" }, { id: "asc" }],
+};
+
+const orderingFor = (sort: RecipeSort): Prisma.RecipeOrderByWithRelationInput[] => ORDERINGS[sort];
+
 export type RecipePage = {
   items: RecipeListItem[];
   /** The size of the whole filtered set, not of this page. */
@@ -106,7 +131,7 @@ export type RecipePage = {
  */
 export async function listPublishedRecipes(
   db: PrismaClient,
-  options: { skip: number; take: number; tagSlug?: string },
+  options: { skip: number; take: number; tagSlug?: string; query?: string; sort?: RecipeSort },
 ): Promise<RecipePage> {
   // One `where`, used by both the page query and the count, so the total can
   // never describe a different filter than the items.
@@ -115,12 +140,30 @@ export async function listPublishedRecipes(
     ...(options.tagSlug === undefined
       ? {}
       : { tags: { some: { tag: { slug: options.tagSlug } } } }),
+    /*
+     * Search is a contains-match over the title and the summary, and the body
+     * is deliberately not in it. A recipe body mentions flour; matching on it
+     * would return every bread recipe for a search for `flour` and there would
+     * be no way to say "the ones that are about flour".
+     *
+     * `mode: "insensitive"` is `ILIKE`, and the leading wildcard is why the
+     * trigram indexes exist -- a B-tree has no prefix to seek on and would scan
+     * every published row.
+     */
+    ...(options.query === undefined
+      ? {}
+      : {
+          OR: [
+            { title: { contains: options.query, mode: "insensitive" } },
+            { summary: { contains: options.query, mode: "insensitive" } },
+          ],
+        }),
   };
 
   const [rows, total] = await Promise.all([
     db.recipe.findMany({
       where,
-      orderBy: [{ publishedAt: "desc" }, { id: "desc" }],
+      orderBy: orderingFor(options.sort ?? DEFAULT_RECIPE_SORT),
       skip: options.skip,
       take: options.take,
       select: {
