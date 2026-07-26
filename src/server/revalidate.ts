@@ -37,6 +37,13 @@ import { revalidatePath } from "next/cache";
  */
 export function revalidateRecipe(options: { slugs: (string | null)[]; tags?: boolean }): void {
   revalidatePath("/");
+  /*
+   * The sitemap is built from what is published, at build time, like every
+   * other static route -- so publishing a recipe that never reaches it is the
+   * same bug as publishing one that never reaches the front page, with a
+   * longer feedback loop: nobody notices until a crawler does not.
+   */
+  revalidatePath("/sitemap.xml");
   if (options.tags === true) revalidatePath("/tags");
 
   for (const slug of new Set(options.slugs.filter((slug) => slug !== null))) {
