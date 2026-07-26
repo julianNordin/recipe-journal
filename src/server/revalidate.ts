@@ -42,9 +42,14 @@ export function revalidateRecipe(options: { slugs: (string | null)[]; tags?: boo
    * other static route -- so publishing a recipe that never reaches it is the
    * same bug as publishing one that never reaches the front page, with a
    * longer feedback loop: nobody notices until a crawler does not.
+   *
+   * **`/feed.xml` is deliberately not here.** It was, for one commit. The
+   * build's route table says it is `ƒ (Dynamic)` -- a route handler with no
+   * caching config is rendered per request -- so the call did nothing while
+   * looking exactly like insurance, which is the failure this list was written
+   * to avoid. Read the route table before adding a path.
    */
   revalidatePath("/sitemap.xml");
-  revalidatePath("/feed.xml");
   if (options.tags === true) revalidatePath("/tags");
 
   for (const slug of new Set(options.slugs.filter((slug) => slug !== null))) {

@@ -129,3 +129,51 @@ test.describe("the feed", () => {
     expect(xml).not.toContain("Brown butter cardamom buns");
   });
 });
+
+test.describe("the link preview image", () => {
+  test("is offered in the page's metadata and really renders", async ({ request }) => {
+    const html = await (await request.get("/recipes/no-knead-sourdough")).text();
+
+    const match = /<meta property="og:image" content="([^"]+)"/.exec(html);
+    expect(match, "the page offers no og:image").not.toBeNull();
+
+    const response = await request.get(match?.[1] ?? "");
+
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("image/png");
+
+    // A real PNG rather than an error page with the wrong header. The first
+    // eight bytes are the signature every PNG starts with.
+    const bytes = await response.body();
+    expect([...bytes.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
+  });
+
+  test("shows a draft nothing a slug that never existed would not", async ({ request }) => {
+    /*
+     * **Byte for byte identical, which is the strongest form this assertion
+     * can take.** A preview image is rendered by this server, then fetched,
+     * cached and displayed by somebody else's -- to people who never came here.
+     * A draft title leaking into one is not a 404 anybody can serve afterwards.
+     *
+     * Comparing against the never-existed case rather than reading the pixels:
+     * the rule is that a draft is treated exactly like a slug that is not
+     * there, and equal bytes say precisely that.
+     */
+    const forDraft = await request.get(`/recipes/${DRAFT_SLUG}/opengraph-image`);
+    const forNothing = await request.get("/recipes/no-such-recipe-anywhere/opengraph-image");
+
+    expect(forDraft.status()).toBe(200);
+    expect(forNothing.status()).toBe(200);
+
+    expect((await forDraft.body()).equals(await forNothing.body())).toBe(true);
+  });
+
+  test("and a published recipe's image is not the generic one", async ({ request }) => {
+    // The control. Two identical images would satisfy the test above while
+    // meaning the feature does nothing.
+    const forRecipe = await request.get("/recipes/no-knead-sourdough/opengraph-image");
+    const forNothing = await request.get("/recipes/no-such-recipe-anywhere/opengraph-image");
+
+    expect((await forRecipe.body()).equals(await forNothing.body())).toBe(false);
+  });
+});
