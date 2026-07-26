@@ -19,6 +19,7 @@
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "db:reset": "prisma migrate reset",
+    "db:tidy": "tsx scripts/tidy-published.ts",
     "test:db": "vitest run --config vitest.config.db.mts",
     "test:e2e": "playwright test",
     "test": "npm run test:unit && npm run test:db"

@@ -16,6 +16,17 @@ import { defineConfig, devices } from "@playwright/test";
  */
 export default defineConfig({
   testDir: "./tests/e2e",
+
+  /*
+   * Put the development site back the way the suite found it.
+   *
+   * The specs unpublish what they publish, but that cleanup is best-effort on
+   * purpose -- a test that has already failed should report its own reason
+   * rather than be replaced by a tidy-up that failed after it -- so debris
+   * accumulates exactly when something went wrong. It has caused four
+   * failures in tests about something else. See the file for the list.
+   */
+  globalTeardown: "./tests/e2e/support/global-teardown.ts",
   fullyParallel: true,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,

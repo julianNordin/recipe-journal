@@ -73,3 +73,59 @@ test.describe("robots.txt", () => {
     expect(body).toContain("Allow: /");
   });
 });
+
+test.describe("the feed", () => {
+  test("is served as RSS and really parses", async ({ request, page }) => {
+    const response = await request.get("/feed.xml");
+    const xml = await response.text();
+
+    expect(response.status()).toBe(200);
+    expect(response.headers()["content-type"]).toContain("application/rss+xml");
+
+    /*
+     * Parsed by a real XML parser rather than pattern-matched.
+     *
+     * The escaping is unit-tested against the awkward strings; what this adds
+     * is that the document a reader would actually fetch is well-formed --
+     * which is the only thing a reader checks before giving up on all of it.
+     * `DOMParser` lives in the browser, so the parsing happens there; it
+     * reports a failure as a `parsererror` element rather than by throwing,
+     * which is the detail that makes a naive version of this pass on anything.
+     */
+    const problem = await page.evaluate((source: string) => {
+      const document_ = new DOMParser().parseFromString(source, "application/xml");
+      return document_.querySelector("parsererror")?.textContent ?? null;
+    }, xml);
+
+    expect(problem).toBeNull();
+  });
+
+  test("lists recipes with absolute links, and nothing without one", async ({ request }) => {
+    const xml = await (await request.get("/feed.xml")).text();
+
+    const links = [...xml.matchAll(/<link>([^<]+)<\/link>/g)].map((match) => match[1] ?? "");
+
+    // At least the channel and one item. The control: an empty feed satisfies
+    // "every link is absolute" without saying anything.
+    expect(links.length).toBeGreaterThan(1);
+
+    /*
+     * Every one absolute, asserted over whatever is in the feed rather than
+     * against a named recipe. A feed is the newest twenty, so the seeded
+     * fixtures are only in it when nothing else has been published -- and this
+     * suite publishes. Four tests have now been written against "the first
+     * page of a listing" and had to be rewritten.
+     */
+    for (const link of links) {
+      expect(link, link).toMatch(/^https?:\/\//);
+    }
+  });
+
+  test("lists no drafts", async ({ request }) => {
+    const xml = await (await request.get("/feed.xml")).text();
+
+    // The fifth surface, and the same rule from the same query.
+    expect(xml).not.toContain(DRAFT_SLUG);
+    expect(xml).not.toContain("Brown butter cardamom buns");
+  });
+});
