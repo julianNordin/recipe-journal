@@ -38,7 +38,7 @@ Under construction. The roadmap below is ticked as each phase lands.
 - [x] 16 — Caching, revalidation and streaming
 - [x] 17 — Comments and moderation
 - [x] 18 — Search, filters, paging and the N+1
-- [ ] 19 — SEO, feeds and social images
+- [x] 19 — SEO, feeds and social images
 - [ ] 20 — Accessibility and the end-to-end journeys
 - [ ] 21 — Ship: container, CI and release
 
