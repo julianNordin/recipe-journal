@@ -25,7 +25,7 @@
 
 .byline {
   font-size: var(--text-sm);
-  color: var(--color-text-subtle);
+  color: var(--color-text-muted);
 }
 
 .tags {
@@ -51,7 +51,7 @@
   font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--color-text-subtle);
+  color: var(--color-text-muted);
 }
 
 .fact dd {
@@ -175,7 +175,7 @@
 }
 
 .note {
-  color: var(--color-text-subtle);
+  color: var(--color-text-muted);
   font-size: var(--text-sm);
 }
 
@@ -193,7 +193,7 @@
 }
 
 .none {
-  color: var(--color-text-subtle);
+  color: var(--color-text-muted);
 }
 
 .hero {

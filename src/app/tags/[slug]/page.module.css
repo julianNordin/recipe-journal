@@ -9,7 +9,7 @@
   font-size: var(--text-xs);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--color-text-subtle);
+  color: var(--color-text-muted);
 }
 
 .header h1 {
@@ -18,7 +18,7 @@
 }
 
 .count {
-  color: var(--color-text-subtle);
+  color: var(--color-text-muted);
   font-size: var(--text-sm);
 }
 

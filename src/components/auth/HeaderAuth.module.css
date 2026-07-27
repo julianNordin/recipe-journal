@@ -30,7 +30,7 @@
 .signOut {
   font: inherit;
   font-size: var(--text-sm);
-  color: var(--color-text-subtle);
+  color: var(--color-text-muted);
   background: none;
   border: none;
   padding: 0;

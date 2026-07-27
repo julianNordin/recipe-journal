@@ -22,7 +22,20 @@
 
   --color-text: #1c1917;
   --color-text-muted: #6b625a;
-  --color-text-subtle: #918a80;
+
+  /*
+   * There is no third, lighter text tier, and the accessibility sweep is why.
+   *
+   * `--color-text-subtle: #918a80` existed until phase 20 and was used for the
+   * small meta text on cards, tag counts and the footer -- all of it 14px, all
+   * of it measured by axe at **3.3:1 against the page and 3.4:1 against a
+   * card**, where AA asks for 4.5:1. Every fix that reaches 4.5:1 at that size
+   * lands within a hair of `--color-text-muted`: #736b61 is 5.1 and #6b625a is
+   * 5.8, and nobody could tell them apart.
+   *
+   * So the tier is gone rather than nudged. A design system with two tokens
+   * that have to look the same has one token and a decision it has not made.
+   */
 
   --color-accent: #b4491f;
   --color-accent-hover: #963b17;
@@ -94,7 +107,6 @@
 
     --color-text: #f5f1ea;
     --color-text-muted: #b3aa9d;
-    --color-text-subtle: #8a8175;
 
     --color-accent: #f08a5d;
     --color-accent-hover: #f6a179;
@@ -123,7 +135,6 @@
 
   --color-text: #f5f1ea;
   --color-text-muted: #b3aa9d;
-  --color-text-subtle: #8a8175;
 
   --color-accent: #f08a5d;
   --color-accent-hover: #f6a179;

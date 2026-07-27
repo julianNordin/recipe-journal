@@ -29,7 +29,7 @@
 
 .hint {
   font-size: var(--text-sm);
-  color: var(--color-text-subtle);
+  color: var(--color-text-muted);
 }
 
 .error {

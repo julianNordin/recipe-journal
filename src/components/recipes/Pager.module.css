@@ -30,7 +30,7 @@
 }
 
 .disabled {
-  color: var(--color-text-subtle);
+  color: var(--color-text-muted);
   border-color: var(--color-border);
   opacity: 0.6;
 }
