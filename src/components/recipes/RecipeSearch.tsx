@@ -108,14 +108,46 @@ export function RecipeSearch({ query, sort }: { query: string; sort: RecipeSort 
           className={styles.input}
           placeholder="sourdough, soup, cardamom…"
           autoComplete="off"
-          // A combobox rather than a bare text box: `aria-expanded` means
-          // nothing on the implicit `textbox` role, and a search field with a
-          // list of suggestions attached is exactly what the pattern is for.
-          role="combobox"
-          aria-autocomplete="list"
-          aria-controls={listId}
-          aria-expanded={showing}
+          /*
+           * **A plain search field, not a combobox, and that is a decision.**
+           *
+           * It carried `role="combobox"` for one commit. The role is a promise
+           * about keyboard interaction -- arrow keys through the options,
+           * `aria-activedescendant` tracking which one is current, Escape to
+           * dismiss -- and none of that was implemented. A half-built combobox
+           * is worse than no combobox: it tells assistive technology to expect
+           * a pattern that is not there, and a reader who follows the promise
+           * finds the arrow keys moving the caret instead.
+           *
+           * What is here instead works completely: a labelled search input, a
+           * live region that announces suggestions as they arrive, and links
+           * that are reachable with Tab because they come next in the document.
+           * Less ambitious, entirely true.
+           */
+          aria-describedby={listId}
         />
+
+        {/*
+         * Immediately after the input in document order, so Tab from the field
+         * reaches the suggestions rather than the sort control. It is
+         * positioned over the page, so where it sits in the markup is free.
+         */}
+        <div id={listId} className={styles.suggestions} aria-live="polite">
+          {showing ? (
+            <ul className={styles.list}>
+              {suggestions.map((suggestion) => (
+                <li key={suggestion.slug}>
+                  <Link href={`/recipes/${suggestion.slug}`} className={styles.suggestion}>
+                    <span className={styles.suggestionTitle}>{suggestion.title}</span>
+                    {suggestion.author === null ? null : (
+                      <span className={styles.suggestionAuthor}>{suggestion.author}</span>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
 
         <label className={styles.label} htmlFor="recipe-sort">
           Order
@@ -132,23 +164,6 @@ export function RecipeSearch({ query, sort }: { query: string; sort: RecipeSort 
         <Button type="submit" variant="secondary">
           Search
         </Button>
-      </div>
-
-      <div id={listId} className={styles.suggestions} aria-live="polite">
-        {showing ? (
-          <ul className={styles.list}>
-            {suggestions.map((suggestion) => (
-              <li key={suggestion.slug}>
-                <Link href={`/recipes/${suggestion.slug}`} className={styles.suggestion}>
-                  <span className={styles.suggestionTitle}>{suggestion.title}</span>
-                  {suggestion.author === null ? null : (
-                    <span className={styles.suggestionAuthor}>{suggestion.author}</span>
-                  )}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        ) : null}
       </div>
     </form>
   );

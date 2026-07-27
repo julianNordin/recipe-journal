@@ -51,6 +51,18 @@ test.describe("server rendering", () => {
     expect(html).toContain("gluten develops on its own given time");
     expect(html).toContain("<p>Start it the night before.</p>");
 
+    /*
+     * The body's own heading, one level down from what the author wrote.
+     *
+     * `# Before you start` in the markdown becomes an `<h2>`, not an `<h1>`,
+     * because the body renders inside the page's `<h1>` and two top-level
+     * headings tell a screen reader the page holds two documents. The seed
+     * carries a heading precisely so this is exercised -- and so the axe sweep
+     * has a heading order to check on a real page.
+     */
+    expect(html).toContain("<h2>Before you start</h2>");
+    expect(html).not.toContain("<h1>Before you start</h1>");
+
     // Every ingredient, with its quantities and its note.
     for (const ingredient of [
       "strong white flour",

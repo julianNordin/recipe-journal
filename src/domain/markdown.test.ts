@@ -8,8 +8,12 @@ describe("renderMarkdown", () => {
   });
 
   it("renders headings, emphasis and paragraphs", () => {
+    // `## Method` becomes an `<h3>`, not an `<h2>`. Every heading in a body is
+    // pushed down one level, because the body renders inside the page's `<h1>`
+    // -- see the `heading levels` group at the bottom of this file. This
+    // assertion said `<h2>` until phase 20.
     expect(renderMarkdown("## Method\n\nMix **well**, then rest.")).toBe(
-      "<h2>Method</h2>\n<p>Mix <strong>well</strong>, then rest.</p>",
+      "<h3>Method</h3>\n<p>Mix <strong>well</strong>, then rest.</p>",
     );
   });
 
@@ -198,5 +202,61 @@ describe("toPlainText", () => {
 
   it("is deterministic", () => {
     expect(toPlainText("# A\n\nb")).toBe(toPlainText("# A\n\nb"));
+  });
+});
+
+describe("heading levels", () => {
+  it("pushes an author's top-level heading down one", () => {
+    /*
+     * A body is rendered inside the page's `<h1>`, so `# Ingredients` as a
+     * second `<h1>` says the page contains two documents -- which is how a
+     * screen reader's heading list reads it.
+     */
+    expect(renderMarkdown("# Before you start")).toContain("<h2>Before you start</h2>");
+    expect(renderMarkdown("# Before you start")).not.toContain("<h1>");
+  });
+
+  it("pushes every level down, not just the first", () => {
+    const html = renderMarkdown(`# One
+
+## Two
+
+### Three
+
+#### Four
+
+##### Five`);
+
+    expect(html).toContain("<h2>One</h2>");
+    expect(html).toContain("<h3>Two</h3>");
+    expect(html).toContain("<h4>Three</h4>");
+    expect(html).toContain("<h5>Four</h5>");
+    expect(html).toContain("<h6>Five</h6>");
+  });
+
+  it("leaves h6 alone rather than dropping it off the end", () => {
+    // A heading rendered as a paragraph is worse than one a level too high.
+    expect(renderMarkdown("###### Six")).toContain("<h6>Six</h6>");
+  });
+
+  it("does not touch anything that is not a heading", () => {
+    const html = renderMarkdown(`A paragraph.
+
+- an item
+
+> a quote`);
+
+    expect(html).toContain("<p>A paragraph.</p>");
+    expect(html).toContain("<li>an item</li>");
+    expect(html).toContain("<blockquote>");
+  });
+
+  it("still sanitises what it has shifted", () => {
+    // The shift runs before the sanitiser, so what the sanitiser approves is
+    // what gets rendered. Running it after would rewrite an approved tree.
+    const html = renderMarkdown("# [x](javascript:alert(1))");
+
+    expect(html).toContain("<h2>");
+    expect(html).not.toContain("javascript:");
   });
 });

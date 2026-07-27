@@ -4,6 +4,7 @@
 }
 
 .row {
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -45,6 +46,7 @@
  * appear and disappear a few hundred milliseconds apart.
  */
 .suggestions {
+  /* Positioned against the row, so it sits under the field it belongs to. */
   position: absolute;
   inset-inline: 0;
   top: 100%;

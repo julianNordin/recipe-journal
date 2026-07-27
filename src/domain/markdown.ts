@@ -39,9 +39,50 @@ import { unified } from "unified";
  * body wants none of them. Adding an extension later means revisiting the
  * schema, not just adding a `.use`.
  */
+/** The shape of a hast element this transform needs. Not a types dependency. */
+type HastNode = { type: string; tagName?: string; children?: HastNode[] };
+
+const HEADINGS: Record<string, string> = { h1: "h2", h2: "h3", h3: "h4", h4: "h5", h5: "h6" };
+
+/**
+ * Push every heading in a body down one level, and never past `h6`.
+ *
+ * **A recipe body is rendered inside the page's `<h1>`, so an author's
+ * `# Ingredients` would be a second `<h1>` on the page.** That is not a
+ * styling problem: a screen reader's heading list is how somebody navigates a
+ * long document, and two top-level headings say the page contains two
+ * documents. Markdown has no way to express "a heading, one level down from
+ * wherever this ends up", so the shift has to happen here.
+ *
+ * This was left open in phase 07 with a note to decide it when a page existed,
+ * and it is decided here rather than by the automated sweep -- axe's
+ * `heading-order` rule would have caught it, and did not, because no seeded
+ * body contained a heading. One does now, which is the other half of the fix.
+ *
+ * `h5` is the last level that moves. Pushing `h6` off the end would delete it,
+ * and a heading rendered as a paragraph is worse than one a level too high.
+ *
+ * Written as a plain recursion rather than pulling in `unist-util-visit`: it
+ * is nine lines, and the alternative is depending on a package this project
+ * only has transitively.
+ */
+const shiftHeadings = () => (tree: HastNode) => {
+  const walk = (node: HastNode): void => {
+    if (node.type === "element" && node.tagName !== undefined) {
+      node.tagName = HEADINGS[node.tagName] ?? node.tagName;
+    }
+    for (const child of node.children ?? []) walk(child);
+  };
+
+  walk(tree);
+};
+
 const processor = unified()
   .use(remarkParse)
   .use(remarkRehype)
+  // Before the sanitiser, so what it checks is what gets rendered. After it,
+  // this would be rewriting a tree that had already been approved.
+  .use(shiftHeadings)
   .use(rehypeSanitize)
   .use(rehypeStringify)
   .freeze();

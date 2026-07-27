@@ -109,7 +109,11 @@ export async function seedDatabase(db: PrismaClient): Promise<SeedCounts> {
     status: "PUBLISHED",
     title: "No-knead sourdough",
     summary: "A long, slow ferment that does the work while you do not.",
-    body: "The dough is wet enough that gluten develops on its own given time.\n\nStart it the night before.",
+    // A heading in a body, on purpose: it is the fixture that makes the
+    // accessibility sweep exercise heading order, and the reason the markdown
+    // pipeline pushes every heading down one level -- a body renders inside
+    // the page's own `<h1>`.
+    body: "# Before you start\n\nThe dough is wet enough that gluten develops on its own given time.\n\nStart it the night before.",
     servings: 8,
     prepMinutes: 30,
     cookMinutes: 45,
