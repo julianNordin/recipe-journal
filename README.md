@@ -39,7 +39,7 @@ Under construction. The roadmap below is ticked as each phase lands.
 - [x] 17 — Comments and moderation
 - [x] 18 — Search, filters, paging and the N+1
 - [x] 19 — SEO, feeds and social images
-- [ ] 20 — Accessibility and the end-to-end journeys
+- [x] 20 — Accessibility and the end-to-end journeys
 - [ ] 21 — Ship: container, CI and release
 
 ## Running it
