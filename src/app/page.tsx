@@ -1,10 +1,24 @@
 import { RecipeCard } from "@/components/recipes/RecipeCard";
 import { LinkButton } from "@/components/ui/Button";
 import { Badge, Card, Container, EmptyState } from "@/components/ui/Surfaces";
+import { orEmptyDuringBuild } from "@/server/build";
 import { db } from "@/server/db";
 import { listPublishedRecipes } from "@/server/recipes/queries";
 
 import styles from "./page.module.css";
+
+/**
+ * Re-rendered at most this often, on top of being invalidated when a recipe
+ * changes.
+ *
+ * **On-demand revalidation is the mechanism; this is the safety net.** The
+ * actions invalidate this page the moment anything on it moves, and that is
+ * what the end-to-end tests assert. What a time bound adds is a way out of one
+ * specific hole: a page prerendered during an image build, where the database
+ * was unreachable and the answer was "nothing published yet". Without a clock,
+ * that page would stand until somebody published something.
+ */
+export const revalidate = 300;
 
 /** How many recipes the front page shows before sending people to the index. */
 const LATEST_COUNT = 3;
@@ -19,7 +33,10 @@ const LATEST_COUNT = 3;
  * imported there so the same functions can run against a test container.
  */
 export default async function Home() {
-  const { items, total } = await listPublishedRecipes(db, { skip: 0, take: LATEST_COUNT });
+  const { items, total } = await orEmptyDuringBuild(
+    () => listPublishedRecipes(db, { skip: 0, take: LATEST_COUNT }),
+    { items: [], total: 0 },
+  );
 
   return (
     <Container>

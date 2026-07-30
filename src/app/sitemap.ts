@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 
+import { orEmptyDuringBuild } from "@/server/build";
 import { db } from "@/server/db";
 import { listPublishedRecipeSlugs, listTags } from "@/server/recipes/queries";
 import { siteUrl } from "@/server/site";
@@ -25,7 +26,15 @@ import { siteUrl } from "@/server/site";
  * studio by following a link.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [slugs, tags] = await Promise.all([listPublishedRecipeSlugs(db), listTags(db)]);
+  /*
+   * The three fixed entries below are always right, so a sitemap built without
+   * a database is a smaller sitemap rather than a broken one -- and publishing
+   * anything invalidates it.
+   */
+  const [slugs, tags] = await Promise.all([
+    orEmptyDuringBuild(() => listPublishedRecipeSlugs(db), []),
+    orEmptyDuringBuild(() => listTags(db), []),
+  ]);
 
   return [
     { url: siteUrl("/"), changeFrequency: "daily", priority: 1 },

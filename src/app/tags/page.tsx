@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { Container, EmptyState } from "@/components/ui/Surfaces";
+import { orEmptyDuringBuild } from "@/server/build";
 import { db } from "@/server/db";
 import { listTags } from "@/server/recipes/queries";
 
@@ -12,8 +13,21 @@ export const metadata: Metadata = {
   description: "Browse recipes by tag.",
 };
 
+/**
+ * Re-rendered at most this often, on top of being invalidated when a recipe
+ * changes.
+ *
+ * **On-demand revalidation is the mechanism; this is the safety net.** The
+ * actions invalidate this page the moment anything on it moves, and that is
+ * what the end-to-end tests assert. What a time bound adds is a way out of one
+ * specific hole: a page prerendered during an image build, where the database
+ * was unreachable and the answer was "nothing published yet". Without a clock,
+ * that page would stand until somebody published something.
+ */
+export const revalidate = 300;
+
 export default async function TagsPage() {
-  const tags = await listTags(db);
+  const tags = await orEmptyDuringBuild(() => listTags(db), []);
 
   return (
     <Container>

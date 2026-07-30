@@ -11,6 +11,7 @@ import { formatLongDay } from "@/domain/format-date";
 import { renderMarkdown, toPlainText } from "@/domain/markdown";
 import { readingTime } from "@/domain/reading-time";
 import type { Difficulty } from "@/generated/prisma/client";
+import { orEmptyDuringBuild } from "@/server/build";
 import { db } from "@/server/db";
 import {
   findCurrentSlugFor,
@@ -49,7 +50,17 @@ const getRecipe = cache((slug: string) => findPublishedRecipeBySlug(db, slug));
  * is meant to show before fixing, and this is the line that creates it.
  */
 export async function generateStaticParams() {
-  const slugs = await listPublishedRecipeSlugs(db);
+  /*
+   * **Empty when the database is unreachable, which is how the container image
+   * gets built at all.** `docker build` has no Postgres beside it, and this
+   * runs during `next build`.
+   *
+   * Nothing is lost by returning nothing: `dynamicParams` is left at its
+   * default, so a slug that is not in this list still renders on demand. The
+   * only difference is that the first visitor to each recipe pays for the
+   * render instead of the builder having paid for it.
+   */
+  const slugs = await orEmptyDuringBuild(() => listPublishedRecipeSlugs(db), []);
   return slugs.map((slug) => ({ slug }));
 }
 
