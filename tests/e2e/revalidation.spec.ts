@@ -47,7 +47,16 @@ import { fieldsForm, publishableDraft, publishPanel } from "./support/studio";
  */
 const homePage = (request: APIRequestContext) =>
   expect.poll(async () => (await request.get("/")).text(), {
-    timeout: 8000,
+    /*
+     * **Widened when `/` gained a time-based `revalidate` in phase 21.** That
+     * turns the page into stale-while-revalidate, so an invalidated entry may
+     * serve its previous copy once while the fresh render happens behind it --
+     * correct behaviour, and one more request before the answer settles.
+     * Twelve seconds is the same promise with room for the mechanism actually
+     * in use. With revalidation removed the page never changes and the poll
+     * still runs out, so this softens nothing.
+     */
+    timeout: 12_000,
     intervals: [200, 400, 800],
   });
 

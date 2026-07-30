@@ -1,3 +1,13 @@
+# Two things live here: the database every workflow needs, and the container
+# the application actually ships as.
+#
+# **`npm run db:up` starts `db` alone, on purpose.** `docker compose up -d`
+# with no argument starts the application too, on port 3000, where the
+# development server and the end-to-end suite both expect to find their own --
+# and a stale container answering that port has cost this project three wrong
+# conclusions already. Bringing the whole stack up is `docker compose up -d`,
+# said deliberately.
+
 services:
   db:
     image: postgres:18-alpine
@@ -28,6 +38,48 @@ services:
       timeout: 3s
       retries: 20
       start_period: 5s
+
+  # -------------------------------------------------------------------------
+  # Migrations, as a one-shot service.
+  #
+  # **Built from the `builder` stage, which still has the Prisma CLI.** The
+  # runtime image deliberately does not: the CLI and its schema engine are
+  # around 200 MB, and shipping them so that every replica can race the same
+  # `migrate deploy` at boot is the wrong trade twice over. One container runs
+  # it once, `app` waits for it to exit cleanly, and the image that serves
+  # traffic carries only what the server touches.
+  # -------------------------------------------------------------------------
+  migrate:
+    build:
+      context: .
+      target: builder
+    command: ["npx", "prisma", "migrate", "deploy"]
+    environment:
+      DATABASE_URL: postgresql://recipe:recipe@db:5432/recipe_journal
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    build:
+      context: .
+      target: runner
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://recipe:recipe@db:5432/recipe_journal
+      # Placeholders for a local run. A real deployment supplies its own, and
+      # `src/env.ts` refuses to boot without them rather than failing later.
+      NEXTAUTH_SECRET: local-development-secret-at-least-32-chars
+      NEXTAUTH_URL: http://localhost:3000
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+      # Not just "started". The app must not serve a request against a schema
+      # that is still being applied.
+      migrate:
+        condition: service_completed_successfully
 
 volumes:
   db-data:

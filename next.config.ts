@@ -8,6 +8,23 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
 
   /**
+   * A self-contained server directory, for the container image.
+   *
+   * `next build` traces which files the server actually reaches and copies
+   * only those into `.next/standalone`, so the runtime image needs no
+   * `node_modules` and no `npm install` -- it copies a directory and runs
+   * `node server.js`. That is the difference between an image that ships the
+   * dependency tree and one that ships what the code touches.
+   *
+   * The tracing is why `serverExternalPackages` below matters more than it
+   * looks: a package Next bundles is inlined and traced automatically, but one
+   * declared external is `require`d at runtime, and the trace is what decides
+   * whether it is in the image at all. Both entries there break when bundled
+   * and would break differently if they were missing.
+   */
+  output: "standalone",
+
+  /**
    * Packages the server build must `require` at runtime rather than bundle.
    *
    * Both of these break when bundled, for different reasons. The generated

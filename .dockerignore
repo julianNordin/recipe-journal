@@ -1,0 +1,25 @@
+# What never belongs in a build context.
+#
+# Note what is *not* here: this file is tracked, so a name in it is published,
+# and the Dockerfile copies explicit paths rather than `COPY . .` for the same
+# reason. Anything that should not reach an image is excluded by not being
+# named in a COPY, not by being listed here.
+
+node_modules
+.next
+.git
+.env
+.env.*
+!.env.example
+
+# Test output and local scratch.
+test-results
+playwright-report
+tsconfig.tsbuildinfo
+
+# Nothing in here runs in a container.
+tests
+scripts
+playwright.config.ts
+vitest.config.mts
+vitest.config.db.mts
