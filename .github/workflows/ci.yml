@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# A second push to the same branch cancels the first. Nothing here is
+# deployed, so an outdated run has nothing to say.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The three the application refuses to boot without. `src/env.ts` parses them
+  # at import time, so a missing one fails the build rather than surfacing as a
+  # 500 on a page much later.
+  DATABASE_URL: postgresql://recipe:recipe@localhost:5432/recipe_journal
+  NEXTAUTH_SECRET: continuous-integration-secret-at-least-32
+  NEXTAUTH_URL: http://localhost:3001
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  verify:
+    name: lint, typecheck, test, build
+    runs-on: ubuntu-latest
+
+    services:
+      # For the build and the end-to-end suite. The database *tests* do not use
+      # it -- they start their own container through Testcontainers, which is
+      # the point of that tier -- but `next build` prerenders routes that read
+      # the database, and the e2e suite seeds one.
+      postgres:
+        image: postgres:18-alpine
+        env:
+          POSTGRES_USER: recipe
+          POSTGRES_PASSWORD: recipe
+          POSTGRES_DB: recipe_journal
+        ports:
+          - 5432:5432
+        # Same reasoning as the compose healthcheck: a TCP port opens well
+        # before the server accepts queries.
+        options: >-
+          --health-cmd "pg_isready -U recipe -d recipe_journal"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 20
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      # `npm ci` honours the `allowScripts` list in package.json, which is why
+      # that list is checked in rather than approved on a developer machine:
+      # without it `prisma generate` silently never runs and the first import
+      # of the client fails a long way from the cause.
+      - run: npm ci
+
+      - run: npx prisma migrate deploy
+
+      - run: npm run lint
+
+      # `next typegen` first, then tsc. Next generates PageProps and
+      # LayoutProps into .next/types, and a clean checkout has neither -- a bare
+      # `tsc --noEmit` fails here and nowhere else.
+      - run: npm run typecheck
+
+      - run: npm run test:unit
+
+      # Testcontainers. The runner has Docker, and this tier starts and
+      # migrates its own Postgres rather than using the service above.
+      - run: npm run test:db
+
+      - run: npm run build
+
+      - run: npx playwright install --with-deps chromium
+
+      - run: npm run test:e2e
+
+      - name: Upload the Playwright report when something failed
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

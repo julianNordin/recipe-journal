@@ -1,0 +1,37 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+
+    # Three majors that are known to break this project, each for a reason
+    # written down rather than remembered.
+    ignore:
+      # TypeScript 7 is the native Go compiler and ships no programmatic
+      # compiler API. typescript-eslint's type-aware rules need one, and its
+      # peer range stops below 6.1 -- so a major bump here does not fail
+      # loudly, it turns off half the linting.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
+
+      # `prisma@latest` has sat on a release candidate a full major ahead of
+      # `@prisma/client` for months. A bump to the CLI alone puts the two out
+      # of step, and prisma 8 drops the generator this project uses.
+      - dependency-name: prisma
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@prisma/*"
+        update-types: ["version-update:semver-major"]
+
+      # ESLint 10 removes a context API that eslint-plugin-react still calls,
+      # and eslint-config-next bundles that plugin -- so the linter does not
+      # fail, it fails to start.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
