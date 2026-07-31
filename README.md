@@ -1,5 +1,7 @@
 # Recipe Journal
 
+[![CI](https://github.com/julianNordin/recipe-journal/actions/workflows/ci.yml/badge.svg)](https://github.com/julianNordin/recipe-journal/actions/workflows/ci.yml)
+
 A small recipe site with authoring and authentication, built on the Next.js App Router.
 
 The point of the project is the thing a single-page app and a headless API each only do half of:
