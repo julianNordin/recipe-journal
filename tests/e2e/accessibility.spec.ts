@@ -69,6 +69,21 @@ test.describe("the public pages", () => {
 
 test.describe("the studio", () => {
   test("the dashboard has none", async ({ page }) => {
+    /*
+     * **Longer than the default, and the cost is axe's rather than the
+     * page's.** The dashboard lists every recipe its author has written, and
+     * this suite creates about fifty of them as it runs -- so by the time this
+     * test executes, axe is walking a few thousand nodes. Alone it takes
+     * nineteen seconds; under parallel workers it went past thirty and failed
+     * on a fresh clone while passing in a warm working copy, which is the
+     * shape of a flake worth naming rather than retrying.
+     *
+     * The page itself renders in milliseconds. Nobody but this test ever asks
+     * a browser to audit it, so the honest fix is to give the audit room, not
+     * to change what the page shows.
+     */
+    test.setTimeout(90_000);
+
     await signIn(page);
     await expectNoViolations(page);
   });
