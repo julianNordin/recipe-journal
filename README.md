@@ -18,7 +18,7 @@ Server Actions write through it, and there is no client-side data-fetching layer
 
 ## Status
 
-Under construction. The roadmap below is ticked as each phase lands.
+All twenty-one phases are done. The roadmap below is what they were.
 
 - [x] 01 — Scaffold and tooling
 - [x] 02 — App shell, design tokens and primitives
@@ -40,7 +40,7 @@ Under construction. The roadmap below is ticked as each phase lands.
 - [x] 18 — Search, filters, paging and the N+1
 - [x] 19 — SEO, feeds and social images
 - [x] 20 — Accessibility and the end-to-end journeys
-- [ ] 21 — Ship: container, CI and release
+- [x] 21 — Ship: container, CI and release
 
 ## Architecture
 
