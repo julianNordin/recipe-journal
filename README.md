@@ -42,19 +42,75 @@ Under construction. The roadmap below is ticked as each phase lands.
 - [x] 20 — Accessibility and the end-to-end journeys
 - [ ] 21 — Ship: container, CI and release
 
-## Running it
+## Architecture
 
-```bash
-npm install
-npm run dev
 ```
+app/**/page.tsx        server components: compose, await, render. No Prisma import.
+app/**/actions.ts      "use server": authorize -> parse -> call server/ -> revalidate
+app/api/**/route.ts    route handlers: HTTP shapes only
+        |
+src/server/**          the only place Prisma is imported. Queries and commands.
+        |
+src/domain/**          pure TypeScript. No Next, no Prisma, no clock, no I/O.
+```
+
+**This is not decoration — it is what makes the project testable at all.** There is no way to
+unit test an async Server Component, so any logic left inside one is logic reachable only through
+a browser. Pushing it down into `src/domain` (pure, ~350 unit tests) and `src/server`
+(integration-tested against real Postgres) leaves the components thin enough that Playwright
+covering their composition is genuinely enough.
+
+Two rules hold the layering up, and both were arrived at the hard way:
+
+- **Query and command functions take their Prisma client as an argument**, never importing the
+  singleton. The singleton is `server-only` and builds itself from `DATABASE_URL`, so a module
+  that reaches for it can only be run, never tested. Pages hand over the singleton; the database
+  tier hands over one pointed at a throwaway container.
+- **Pure rules live in `src/domain` even when they are three lines.** Slug collisions, publish
+  readiness, position renumbering, who may delete a comment: each is a decision two callers make
+  and would eventually make differently. `mayDeleteComment` is the clearest case — the component
+  deciding whether to draw a Delete button and the action deciding whether to honour it are the
+  same question, and only one of them is a check.
+
+## Running it
 
 Requires Node 24 and Docker.
 
 ```bash
-npm run db:up        # postgres 18 in a container
+npm install
+npm run db:up        # postgres 18 in a container, and only postgres
 npm run db:migrate   # apply migrations
+npm run db:seed      # two authors, four recipes
+npm run dev
 ```
+
+The seed prints the demo sign-in: `ada@example.com` or `linus@example.com`, password
+`recipe-journal-demo`. Both are throwaway accounts on `example.com` with the password written
+down in a public repository, which is the point — a reviewer should be able to clone this, seed it
+and sign in without an OAuth app or an invitation. The hashes are produced by the real Argon2id
+path, so signing in exercises the real verification rather than a shortcut around it.
+
+### Or the whole thing in containers
+
+```bash
+docker compose up -d   # postgres, a one-shot migrate, and the app on :3000
+```
+
+Three services. `migrate` is built from the Dockerfile's `builder` stage, because that stage still
+has the Prisma CLI and the runtime image deliberately does not — the CLI and its schema engine are
+around 200 MB, and shipping them so every replica can race the same `migrate deploy` at boot is
+the wrong trade twice over. `app` waits for it to exit cleanly, so it never serves a request
+against a schema that is still being applied.
+
+The image is built on `output: "standalone"`: `next build` traces which files the server actually
+reaches, so the runtime stage copies a directory and runs `node server.js` with no `node_modules`
+and no install. It runs as a non-root user and polls `/api/health`, which asks the database a
+question rather than reporting that the process is running — a handler that returned `ok`
+unconditionally would stay green while every page 500s.
+
+**`npm run db:up` starts the database alone, on purpose.** A bare `docker compose up -d` also
+starts the application on port 3000, where the development server and the end-to-end suite both
+expect to find their own.
 
 ## The data model
 
@@ -339,6 +395,50 @@ that passes alone and fails in a suite — is a long way from the cause.
 **Query functions take their Prisma client as an argument.** The application hands
 them the `server-only` singleton; tests hand them one pointed at the container.
 Without that, the data layer could only be tested through a browser.
+
+## What this does not do, and why
+
+Every one of these is a decision rather than a gap.
+
+**It is not deployed anywhere.** The container is built and run locally, and the README stops
+there. A live host would prove hosting, which is not the thing this project is about, and it
+would have cost the phase that the authorization work needed.
+
+**Sessions are JWTs and the adapter's `sessions` table is unused.** NextAuth refuses database
+sessions whenever a credentials provider is configured — there is no session row it can revoke for
+a login it did not create. The table is created by a migration and read by nothing, and saying so
+here beats shipping a table that looks load-bearing.
+
+**There is no moderator.** `UserRole` is `USER` or `AUTHOR`; a comment can be removed by the
+person who wrote it or by the author of the recipe it sits on, and by nobody else. An `ADMIN` case
+would mean a role, a migration and tests for a permission this application has nobody to give.
+
+**Comment bodies are plain text, not markdown.** The recipe body goes through a sanitiser and that
+is a considered exception for content its own author wrote. A comment is written by a stranger,
+and the cheapest correct answer to what a stranger may put on a page is "words".
+
+**`revalidateTag` is not used.** Tags attach to cache entries, and there is no data cache to tag:
+queries go to Postgres through Prisma, not through `fetch`. Tagging would mean wrapping them in a
+second cache layer purely so there was something to name.
+
+**The studio requires JavaScript.** The ingredient and step editor holds the authoritative order
+of two lists and posts it as JSON; reconstructing that from DOM position would be a second source
+of truth for the one thing the component exists to decide. This does not extend to any reading
+surface — the public site is server-rendered throughout, and a Playwright project with scripting
+disabled proves it, including the search box.
+
+**`quickest` sorts by cooking time, not total time.** Prisma cannot order by an expression, so
+prep + cook would need a generated column: a migration and a second place for the number to be
+wrong, to sort a list nobody has asked to sort that precisely.
+
+**The rate limit is approximate under concurrency.** Comments are counted in a window rather than
+serialised behind a lock, so two posts racing at the boundary can both land. It is a brake on
+scripted spam, not an accountancy control, and pretending otherwise would cost every comment on
+the site a lock.
+
+**Automated accessibility checks find about a third of what is wrong.** axe covers every page and
+the keyboard journeys cover what it cannot judge. Neither is a substitute for somebody using this
+with a screen reader, and nothing here claims otherwise.
 
 ## Notes on the toolchain
 
